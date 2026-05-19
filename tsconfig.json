@@ -1,0 +1,38 @@
+{
+  // Visit https://aka.ms/tsconfig to read more about this file
+  "compilerOptions": {
+    // File Layout
+    "rootDir": "./src",                        // 1. Uncommented: Tells TS where your source code lives
+    "outDir": "./dist",                        // 2. Uncommented: Tells TS where to put the compiled JS files
+
+    // Environment Settings
+    "module": "nodenext",
+    "moduleResolution": "nodenext",            // 3. Recommended when using "nodenext"
+    "target": "esnext",
+    "types": ["node"],                        // 4. Added "node" here so global node types work flawlessly
+
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Style Options (Highly recommended for production APIs)
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Recommended Options
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"]                      // 5. Added: Tells the compiler to only look inside your src folder
+}
