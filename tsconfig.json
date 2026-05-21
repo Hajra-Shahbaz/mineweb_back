@@ -2,23 +2,26 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    "rootDir": "./src",                        // 1. Uncommented: Tells TS where your source code lives
-    "outDir": "./dist",                        // 2. Uncommented: Tells TS where to put the compiled JS files
+    "rootDir": "./src",                        // 1. Tells TS where your source code lives
+    "outDir": "./dist",                        // 2. Tells TS where to put the compiled JS files
 
     // Environment Settings
-    "module": "nodenext",
-    "moduleResolution": "nodenext",            // 3. Recommended when using "nodenext"
-    "target": "esnext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,                            // Tells TS to only typecheck, not output files
+    "target": "ESNext",
     "types": ["node"],                        // 4. Added "node" here so global node types work flawlessly
 
     // Other Outputs
     "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    // "declaration": true,                    // Commented out: Conflicts with "noEmit": true
+    // "declarationMap": true,                 // Commented out: Conflicts with "noEmit": true
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,  // <--- ADDED: Fixes the warning and prevents OS-casing bugs
 
     // Style Options (Highly recommended for production APIs)
     "noImplicitReturns": true,
@@ -32,7 +35,8 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "esModuleInterop": true
   },
-  "include": ["src/**/*"]                      // 5. Added: Tells the compiler to only look inside your src folder
+  "include": ["src/**/*"]                      // 5. Tells the compiler to only look inside your src folder
 }
