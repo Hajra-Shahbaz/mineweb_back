@@ -1,74 +1,120 @@
 import type { Request, Response } from 'express';
 import { ExperienceM } from '../model/experienceM.ts';
+import { uploadFileToS3 } from '../utils/s3Service.ts';
 
 /**
- * @desc    Add a new work experience entry
+ * @desc    Add a new work experience record + upload logo to S3
  * @route   POST /api/experience
  */
 export const addExperience = async (req: Request, res: Response): Promise<void> => {
   try {
-    const newExperience = new ExperienceM(req.body);
+    const lastItem = await ExperienceM.findOne().sort({ order: -1 });
+    const nextOrderValue = lastItem ? lastItem.order + 1 : 0;
+
+    let experienceData = { 
+      ...req.body, 
+      order: nextOrderValue 
+    };
+
+    // Check if an image file was uploaded via Multer
+    if (req.file) {
+      const uploadedUrl = await uploadFileToS3(req.file, 'experiences');
+      experienceData.companyLogoUrl = uploadedUrl;
+    }
+
+    const newExperience = new ExperienceM(experienceData);
     const savedExperience = await newExperience.save();
     res.status(201).json(savedExperience);
   } catch (error) {
-    res.status(500).json({ message: 'Error adding experience entry', error });
+    res.status(500).json({ message: 'Error adding experience record', error });
   }
 };
 
 /**
- * @desc    Get all work experience items (sorted newest first)
+ * @desc    Get all experience records (Sorted by drag-and-drop alignment)
  * @route   GET /api/experience
  */
-export const getAllExperiences = async (_req: Request, res: Response): Promise<void> => {
+export const getAllExperience = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const history = await ExperienceM.find().sort({ startDate: -1 });
-    res.status(200).json(history);
+    // Returns data sorted exactly how you dragged it in your admin panel
+    const experienceList = await ExperienceM.find().sort({ order: 1 });
+    res.status(200).json(experienceList);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching experiences', error });
+    res.status(500).json({ message: 'Error fetching experience records', error });
   }
 };
 
 /**
- * @desc    Edit a specific part of an experience dynamically
+ * @desc    Edit an experience record + handle logo updates
  * @route   PUT /api/experience/:id
  */
 export const editExperience = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    let updateFields = { ...req.body };
+
+    // If a new replacement image is sent, stream it to S3 and update the URL string field
+    if (req.file) {
+      const uploadedUrl = await uploadFileToS3(req.file, 'experiences');
+      updateFields.companyLogoUrl = uploadedUrl;
+    }
 
     const updatedExperience = await ExperienceM.findByIdAndUpdate(
-      id,
-      { $set: req.body },
+      req.params.id,
+      { $set: updateFields },
       { new: true, runValidators: true }
     );
 
     if (!updatedExperience) {
-      res.status(404).json({ message: 'Experience entry not found' });
+      res.status(404).json({ message: 'Experience record not found' });
       return;
     }
 
     res.status(200).json(updatedExperience);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating experience data', error });
+    res.status(500).json({ message: 'Error updating experience record', error });
   }
 };
 
 /**
- * @desc    Remove an experience card
+ * @desc    Delete an experience record
  * @route   DELETE /api/experience/:id
  */
 export const deleteExperience = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const deletedExperience = await ExperienceM.findByIdAndDelete(id);
-
+    const deletedExperience = await ExperienceM.findByIdAndDelete(req.params.id);
     if (!deletedExperience) {
-      res.status(404).json({ message: 'Experience entry not found' });
+      res.status(404).json({ message: 'Experience record not found' });
+      return;
+    }
+    res.status(200).json({ message: 'Experience record deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting experience record', error });
+  }
+};
+
+/**
+ * @desc    Sync order sequence layout after a frontend drag-and-drop movement
+ * @route   PUT /api/experience/reorder
+ */
+export const reorderExperience = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { totalSequence } = req.body;
+
+    if (!Array.isArray(totalSequence)) {
+      res.status(400).json({ message: 'Invalid payload structure. Array required.' });
       return;
     }
 
-    res.status(200).json({ message: 'Experience item deleted successfully' });
+    const bulkOperations = totalSequence.map((item: { id: string; order: number }) => ({
+      updateOne: {
+        filter: { _id: item.id },
+        update: { $set: { order: item.order } },
+      },
+    }));
+
+    await ExperienceM.bulkWrite(bulkOperations);
+    res.status(200).json({ message: 'Experience sequence alignment updated successfully!' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting experience item', error });
+    res.status(500).json({ message: 'Error reordering experience records', error });
   }
 };

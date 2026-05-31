@@ -1,16 +1,22 @@
 import { Schema, model, Document } from 'mongoose';
 
-// 1. TypeScript Interface definition
-export interface IUserM extends Document {
-  name: string;
-  title: string;       // e.g., "Full-Stack Web Developer"
-  aboutText: string;   // Your main dynamic bio description
-  subText?: string;    // An extra small tagline or introductory text
-  avatarUrl?: string;  // Will store the S3 bucket object URL for your profile pic
-  resumeUrl?: string;  // Will store the S3 bucket object URL for your CV PDF
+// 1. Define the internal structure of a profile picture object
+interface IProfilePicture {
+  url: string;
+  isActive: boolean;
 }
 
-// 2. Mongoose Schema matching the interface
+// 2. TypeScript Interface definition matching all data fields
+export interface IUserM extends Document {
+  name: string;
+  title: string;          // e.g., "Full-Stack Web Developer"
+  aboutText: string;      // Your main dynamic bio description
+  subText?: string;       // An extra small tagline or introductory text
+  profilePictures: IProfilePicture[]; // 🌟 Added to type definitions list to fix ts(2353)
+  resumeUrl?: string;     // Will store the S3 bucket object URL for your CV PDF
+}
+
+// 3. Mongoose Schema matching the interface definitions precisely
 const UserMSchema = new Schema<IUserM>({
   name: { 
     type: String, 
@@ -30,15 +36,19 @@ const UserMSchema = new Schema<IUserM>({
     type: String, 
     trim: true 
   },
-  avatarUrl: { 
-    type: String       // String to hold the uploaded AWS S3 URL
-  },
+  profilePictures: [
+    {
+      url: { type: String, required: true },
+      isActive: { type: Boolean, default: false }
+    }
+  ],
   resumeUrl: { 
-    type: String       // String to hold the uploaded AWS S3 URL
+    type: String, 
+    default: "" 
   }
 }, { 
-  timestamps: true    // Tracks when you last modified your hero/about section
+  timestamps: true // Tracks when you last modified your hero/about section
 });
 
-// 3. Export the model matching your specific file name
+// 4. Export the model matching your specific file name
 export const UserM = model<IUserM>('UserM', UserMSchema);

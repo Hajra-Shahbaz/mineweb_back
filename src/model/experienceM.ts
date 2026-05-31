@@ -4,10 +4,12 @@ export interface IExperienceM extends Document {
   company: string;
   role: string;
   location?: string;
-  startDate: string;      // e.g., "Jan 2025" or "2025-01"
+  startDate: string;       // e.g., "Jan 2025" or "2025-01"
   endDate?: string;        // Optional if it's your current job
   currentJob: boolean;    // True if you are still working here
   description: string;    // Bullet points or paragraph about what you built
+  companyLogoUrl?: string; // 🌟 Stores exactly one S3 bucket URL for the company logo
+  order: number;          // 🌟 Tracks custom drag-and-drop placement sequence
 }
 
 const ExperienceMSchema = new Schema<IExperienceM>({
@@ -41,6 +43,14 @@ const ExperienceMSchema = new Schema<IExperienceM>({
   description: { 
     type: String, 
     required: true 
+  },
+  companyLogoUrl: {
+    type: String,
+    default: "" // Single image string field
+  },
+  order: {
+    type: Number,
+    default: 0
   }
 }, { 
   timestamps: true 
