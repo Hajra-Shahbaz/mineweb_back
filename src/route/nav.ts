@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllNavItems, getVisibleNavItems, createNavItem, updateNavItem, deleteNavItem } from '../controller/navController';
+import { getAllNavItems, getVisibleNavItems, createNavItem, updateNavItem, deleteNavItem } from '../controller/navController.ts';
 
 const router = Router();
 

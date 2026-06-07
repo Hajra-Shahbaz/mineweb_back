@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { NavConfig } from '../model/navConfig';
+import { NavConfig } from '../model/navConfig.ts';
 
 // 1. GET ALL ITEMS (For Admin Panel - Shows everything including hidden items)
 export const getAllNavItems = async ( res: Response): Promise<void> => {
