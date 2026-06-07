@@ -55,7 +55,7 @@ app.use('/api/service', serviceRouter);
 app.use('/api/contact', contactRouter);
 app.use('/api/social', socialRouter);
 app.use('/api/education', educationRouter);
-app.use('/api/nav', navRouter); // <--- 5. Register the nav route baseline path
+app.use('/api/nav', navRouter);
 
 
 app.get('/', (_req, res) => {
