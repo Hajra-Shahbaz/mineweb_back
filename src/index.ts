@@ -10,6 +10,7 @@ import serviceRouter from './route/service.ts';
 import contactRouter from './route/contact.ts';
 import socialRouter from './route/social.ts';
 import educationRouter from './route/education.ts';
+import navRouter from './route/nav.ts'; // <--- 2. Import the nav route
 import cors from 'cors';
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.use('/api/service', serviceRouter);
 app.use('/api/contact', contactRouter);
 app.use('/api/social', socialRouter);
 app.use('/api/education', educationRouter);
+app.use('/api/nav', navRouter); // <--- 5. Register the nav route baseline path
 
 
 app.get('/', (_req, res) => {
