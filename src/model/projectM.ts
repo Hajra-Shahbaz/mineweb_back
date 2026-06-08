@@ -3,16 +3,18 @@ import { Schema, model, Document } from 'mongoose';
 export interface IProjectM extends Document {
   title: string;
   description: string;
-  techStack: string[];     // Array of strings (e.g., ["React", "Node.js"])
-  liveUrl?: string;        // Optional live deployment link
-  githubUrl?: string;      // Optional source code link
-  imageUrl?: string;       // Optional S3 image link (User can skip it!)
+  techStack: string[];     
+  liveUrl?: string;        
+  githubUrl?: string;      
+  imageUrl?: string;       
+  order: number; // <-- Added for Drag-and-Drop sequencing
 }
 
 const ProjectMSchema = new Schema<IProjectM>({
-  title: { 
+  title: {  
     type: String, 
     required: true, 
+    unique: true, 
     trim: true 
   },
   description: { 
@@ -33,7 +35,12 @@ const ProjectMSchema = new Schema<IProjectM>({
   },
   imageUrl: { 
     type: String, 
-    default: "" // No required rule here; falls back to an empty string if skipped
+    default: "" 
+  },
+  order: { 
+    type: Number, 
+    required: true,
+    default: 0 // Will auto-increment on creation
   }
 }, { 
   timestamps: true 
