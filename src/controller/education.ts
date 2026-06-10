@@ -1,25 +1,64 @@
 import type { Request, Response } from 'express';
 import { EducationM } from '../model/educationM.ts';
+import { uploadFileToS3 } from '../utils/s3Service.ts';
 
 /**
- * @desc    Add a new education instance
+ * @desc    Add a new education instance + upload institutional logo to S3
  * @route   POST /api/education
  */
 export const addEducation = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Dynamically find the highest current order value to append the new entry at the bottom
     const lastItem = await EducationM.findOne().sort({ order: -1 });
     const nextOrderValue = lastItem ? lastItem.order + 1 : 0;
 
-    const newEducation = new EducationM({
+    let educationData = {
       ...req.body,
       order: nextOrderValue
-    });
+    };
 
+    // Check if an image file was uploaded via Multer
+    if (req.file) {
+      // Stream directly to your specific S3 bucket bucket sub-folder structure
+      const uploadedUrl = await uploadFileToS3(req.file, 'educations');
+      educationData.institutionLogoUrl = uploadedUrl;
+    }
+
+    const newEducation = new EducationM(educationData);
     const savedEducation = await newEducation.save();
     res.status(201).json(savedEducation);
   } catch (error) {
     res.status(500).json({ message: 'Error adding education record', error });
+  }
+};
+
+/**
+ * @desc    Edit details of a specific education record + handle logo updates
+ * @route   PUT /api/education/:id
+ */
+export const editEducation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    let updateFields = { ...req.body };
+
+    // If a new replacement image is sent, stream it to S3 and update the URL string field
+    if (req.file) {
+      const uploadedUrl = await uploadFileToS3(req.file, 'educations');
+      updateFields.institutionLogoUrl = uploadedUrl;
+    }
+
+    const updatedEducation = await EducationM.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true, runValidators: true } // Ensures the Mongoose schema validates input changes
+    );
+
+    if (!updatedEducation) {
+      res.status(404).json({ message: 'Education record not found' });
+      return;
+    }
+
+    res.status(200).json(updatedEducation);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating education data', error });
   }
 };
 
@@ -34,29 +73,6 @@ export const getAllEducation = async (_req: Request, res: Response): Promise<voi
     res.status(200).json(educationList);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching education details', error });
-  }
-};
-
-/**
- * @desc    Edit details of a specific education record
- * @route   PUT /api/education/:id
- */
-export const editEducation = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const updatedEducation = await EducationM.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedEducation) {
-      res.status(404).json({ message: 'Education record not found' });
-      return;
-    }
-
-    res.status(200).json(updatedEducation);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating education data', error });
   }
 };
 

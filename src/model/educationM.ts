@@ -1,11 +1,12 @@
 import { Schema, model, Document } from 'mongoose';
 
 export interface IEducationM extends Document {
-  institute: string;     // e.g., "BISE Lahore" or University name
-  degree: string;        // e.g., "Intermediate in Computer Science", "Bachelor's"
-  duration: string;      // e.g., "2024 - 2026"
-  description?: string;  // Optional text about key subjects or achievements
-  order: number;         // Tracks custom drag-and-drop placement sequence
+  institute: string;           // e.g., "BISE Lahore" or University name
+  degree: string;              // e.g., "Intermediate in Computer Science", "Bachelor's"
+  duration: string;            // e.g., "2024 - 2026"
+  description?: string;        // Optional text about key subjects or achievements
+  order: number;               // Tracks custom drag-and-drop placement sequence
+  institutionLogoUrl?: string; // Optional track string for institutional asset image vector
 }
 
 const EducationMSchema = new Schema<IEducationM>({
@@ -31,6 +32,10 @@ const EducationMSchema = new Schema<IEducationM>({
   order: { 
     type: Number, 
     default: 0 // Default index position when a new block is added
+  },
+  institutionLogoUrl: {
+    type: String,
+    trim: true // Stores the file path or CDN resource link optionally
   }
 }, { 
   timestamps: true 

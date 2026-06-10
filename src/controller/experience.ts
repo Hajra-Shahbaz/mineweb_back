@@ -11,8 +11,13 @@ export const addExperience = async (req: Request, res: Response): Promise<void> 
     const lastItem = await ExperienceM.findOne().sort({ order: -1 });
     const nextOrderValue = lastItem ? lastItem.order + 1 : 0;
 
+    // Normalize currentJob to a true boolean (FormData always sends strings)
+    const isCurrentJob = req.body.currentJob === true || req.body.currentJob === 'true';
+
     let experienceData = { 
       ...req.body, 
+      currentJob: isCurrentJob,
+      endDate: isCurrentJob ? "" : req.body.endDate, // Clear out if it's the current job
       order: nextOrderValue 
     };
 
@@ -31,6 +36,46 @@ export const addExperience = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
+ * @desc    Edit an experience record + handle logo updates
+ * @route   PUT /api/experience/:id
+ */
+export const editExperience = async (req: Request, res: Response): Promise<void> => {
+  try {
+    let updateFields = { ...req.body };
+
+    // Handle normalization if currentJob is present in the update payload
+    if (Object.prototype.hasOwnProperty.call(updateFields, 'currentJob')) {
+      const isCurrentJob = updateFields.currentJob === true || updateFields.currentJob === 'true';
+      updateFields.currentJob = isCurrentJob;
+      if (isCurrentJob) {
+        updateFields.endDate = ""; // Force clean state
+      }
+    }
+
+    // If a new replacement image is sent, stream it to S3 and update the URL string field
+    if (req.file) {
+      const uploadedUrl = await uploadFileToS3(req.file, 'experiences');
+      updateFields.companyLogoUrl = uploadedUrl;
+    }
+
+    const updatedExperience = await ExperienceM.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true, runValidators: true } // This ensures the Mongoose schema checks the rules below!
+    );
+
+    if (!updatedExperience) {
+      res.status(404).json({ message: 'Experience record not found' });
+      return;
+    }
+
+    res.status(200).json(updatedExperience);
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating experience record', error });
+  }
+};
+
+/**
  * @desc    Get all experience records (Sorted by drag-and-drop alignment)
  * @route   GET /api/experience
  */
@@ -44,36 +89,7 @@ export const getAllExperience = async (_req: Request, res: Response): Promise<vo
   }
 };
 
-/**
- * @desc    Edit an experience record + handle logo updates
- * @route   PUT /api/experience/:id
- */
-export const editExperience = async (req: Request, res: Response): Promise<void> => {
-  try {
-    let updateFields = { ...req.body };
 
-    // If a new replacement image is sent, stream it to S3 and update the URL string field
-    if (req.file) {
-      const uploadedUrl = await uploadFileToS3(req.file, 'experiences');
-      updateFields.companyLogoUrl = uploadedUrl;
-    }
-
-    const updatedExperience = await ExperienceM.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateFields },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedExperience) {
-      res.status(404).json({ message: 'Experience record not found' });
-      return;
-    }
-
-    res.status(200).json(updatedExperience);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating experience record', error });
-  }
-};
 
 /**
  * @desc    Delete an experience record

@@ -2,7 +2,8 @@ import { Schema, model, Document } from 'mongoose';
 
 export interface ISkillM extends Document {
   name: string;
-  category: string; // Changed from strict enum to a flexible string
+  category: string;
+  order: number; // 🌟 Added custom layout index sequencing sequence property
 }
 
 const SkillMSchema = new Schema<ISkillM>({
@@ -17,6 +18,11 @@ const SkillMSchema = new Schema<ISkillM>({
     required: true, 
     trim: true,
     lowercase: true // Automatically normalizes custom categories (e.g. "Web3" -> "web3")
+  },
+  order: {
+    type: Number,
+    required: true,
+    default: 0
   }
 }, { 
   timestamps: true 
