@@ -75,9 +75,10 @@ export const editProject = async (req: Request, res: Response): Promise<void> =>
     let updateFields = { ...req.body };
 
     if (updateFields.title) {
+      // Fixed with an explicit type cast to solve the query signature verification issue
       const duplicateCheck = await ProjectM.findOne({ 
         title: updateFields.title.trim(), 
-        _id: { $ne: id } 
+        _id: { $ne: id as any } 
       });
       if (duplicateCheck) {
         res.status(400).json({ message: 'Another project already uses this title.' });
