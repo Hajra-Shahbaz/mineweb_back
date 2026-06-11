@@ -1,11 +1,13 @@
 import { Schema, model, Document } from 'mongoose';
 
 export interface IContactM extends Document {
-  name: string;
-  email: string;
-  subject?: string; // Optional field in case they just want to send a quick note
+  name: string;        // Visitor's name
+  email: string;       // Visitor's email address
+  mineEmail: string; // Your email address (Admin/Owner)
+  phoneNumber?: string; 
+  subject: string; 
   message: string;
-  isRead: boolean;  // Tracks if you've opened/reviewed this message in your admin dashboard
+  isRead: boolean;  
 }
 
 const ContactMSchema = new Schema<IContactM>({
@@ -20,10 +22,21 @@ const ContactMSchema = new Schema<IContactM>({
     trim: true,
     lowercase: true
   },
+mineEmail: { 
+    type: String, 
+    required: true, 
+    trim: true,
+    lowercase: true
+  },
+  phoneNumber: { 
+    type: String,
+    required: false, 
+    trim: true
+  },
   subject: { 
     type: String, 
-    trim: true,
-    default: "No Subject Specified"
+    required: true, 
+    trim: true
   },
   message: { 
     type: String, 
@@ -31,10 +44,10 @@ const ContactMSchema = new Schema<IContactM>({
   },
   isRead: { 
     type: Boolean, 
-    default: false // Messages start as unread automatically
+    default: false 
   }
 }, { 
-  timestamps: true // Tracks exactly when the client submitted the form (createdAt)
+  timestamps: true 
 });
 
 export const ContactM = model<IContactM>('ContactM', ContactMSchema);

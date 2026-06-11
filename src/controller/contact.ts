@@ -2,29 +2,46 @@ import type { Request, Response } from 'express';
 import { ContactM } from '../model/contactM.ts';
 
 /**
- * @desc    Submit a new contact form message (Used by portfolio visitors)
+ * @desc    Submit a new contact form message (Stores visitor info + your email)
  * @route   POST /api/contact
  */
 export const submitMessage = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, subject, message } = req.body;
+    // Extracting fields exactly matching your custom schema names
+    const { name, email, mineEmail, phoneNumber, subject, message } = req.body;
 
-    if (!name || !email || !message) {
-      res.status(400).json({ message: 'Name, email, and message are required fields.' });
+    // Validation: Ensure all schema-required fields are present in the request
+    if (!name || !email || !mineEmail || !subject || !message) {
+      res.status(400).json({ 
+        message: 'Validation failed. Name, email, mineEmail, subject, and message are all required.' 
+      });
       return;
     }
 
-    const newMessage = new ContactM({ name, email, subject, message });
+    // Instantiating the new message matching your schema layout
+    const newMessage = new ContactM({ 
+      name, 
+      email, 
+      mineEmail, // Saved exactly as defined in your interface/schema
+      phoneNumber, 
+      subject, 
+      message 
+    });
+
     const savedMessage = await newMessage.save();
     
-    res.status(201).json({ message: 'Message sent successfully!', data: savedMessage });
+    // Returns and displays the newly saved document back to the client immediately
+    res.status(201).json({ 
+      message: 'Message sent and stored successfully!', 
+      data: savedMessage 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error saving message submissions', error });
+    res.status(500).json({ message: 'Error saving message submission', error });
   }
 };
 
 /**
- * @desc    Get all inbox messages (Sorted newest submission first, used by you)
+ * @desc    Get and display all inbox messages (Sorted by newest first)
  * @route   GET /api/contact
  */
 export const getInbox = async (_req: Request, res: Response): Promise<void> => {
@@ -37,7 +54,7 @@ export const getInbox = async (_req: Request, res: Response): Promise<void> => {
 };
 
 /**
- * @desc    Mark a message as read/unread dynamically
+ * @desc    Mark a message as read/unread dynamically (or update fields via Postman)
  * @route   PUT /api/contact/:id
  */
 export const toggleReadStatus = async (req: Request, res: Response): Promise<void> => {
@@ -46,7 +63,7 @@ export const toggleReadStatus = async (req: Request, res: Response): Promise<voi
 
     const updatedMessage = await ContactM.findByIdAndUpdate(
       id,
-      { $set: req.body }, // Send {"isRead": true} from Postman or your admin board
+      { $set: req.body }, 
       { new: true, runValidators: true }
     );
 
