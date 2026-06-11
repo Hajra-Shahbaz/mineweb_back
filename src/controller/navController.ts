@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+// Using type-only imports fixes the verbatimModuleSyntax error flags cleanly
 import type { IAdminNav, IUserNav } from '../model/navConfig.ts';
 import { NavConfig } from '../model/navConfig.ts';
 
@@ -76,14 +77,13 @@ export const editAdminNavItem = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Isolate the element to guarantee a non-null object reference context to TypeScript
-    const targetItem = config.adminNav[itemIndex];
+    // Force an explicit layout cast here to tell TS the reference object structure is safe and defined
+    const targetItem = config.adminNav[itemIndex] as IAdminNav | undefined;
     if (!targetItem) {
       res.status(404).json({ success: false, error: 'Target item reference lost.' });
       return;
     }
 
-    // Check if new ID conflicts with an existing item
     if (id) {
       const cleanNewId = String(id).toLowerCase().trim();
       if (cleanNewId !== targetId) {
@@ -99,6 +99,8 @@ export const editAdminNavItem = async (req: Request, res: Response): Promise<voi
     if (iconName !== undefined) targetItem.iconName = iconName;
     if (isWorking !== undefined) targetItem.isWorking = isWorking;
 
+    // Use markModified so Mongoose tracks changes inside core array mutations cleanly
+    config.markModified('adminNav');
     await config.save();
     res.status(200).json({ success: true, data: targetItem });
   } catch (error: any) {
@@ -208,8 +210,8 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Isolate the element to guarantee a non-null object reference context to TypeScript
-    const targetItem = config.userNav[itemIndex];
+    // Force an explicit layout cast here to tell TS the reference object structure is safe and defined
+    const targetItem = config.userNav[itemIndex] as IUserNav | undefined;
     if (!targetItem) {
       res.status(404).json({ success: false, error: 'Target item reference lost.' });
       return;
@@ -230,6 +232,8 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
     if (iconName !== undefined) targetItem.iconName = iconName;
     if (isVisible !== undefined) targetItem.isVisible = isVisible;
 
+    // Use markModified so Mongoose tracks changes inside core array mutations cleanly
+    config.markModified('userNav');
     await config.save();
     res.status(200).json({ success: true, data: targetItem });
   } catch (error: any) {
