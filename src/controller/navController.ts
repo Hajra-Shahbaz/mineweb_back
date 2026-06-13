@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
-// Using type-only imports fixes the verbatimModuleSyntax error flags cleanly
-import type { IAdminNav, IUserNav } from '../model/navConfig.ts';
-import { NavConfig } from '../model/navConfig.ts';
+import type { IAdminNav, IUserNav } from '../model/navConfig';
+import { NavConfig } from '../model/navConfig';
 
 // Helper function to get or initialize the single master navigation document
 const getOrCreateNavConfig = async () => {
@@ -17,7 +16,6 @@ const getOrCreateNavConfig = async () => {
 // ADMIN NAVIGATION FUNCTIONS
 // ==========================================
 
-// 1. GET ALL ADMIN NAV ITEMS
 export const getAdminNav = async (_req: Request, res: Response): Promise<void> => {
   try {
     const config = await getOrCreateNavConfig();
@@ -27,7 +25,6 @@ export const getAdminNav = async (_req: Request, res: Response): Promise<void> =
   }
 };
 
-// 2. CREATE ADMIN NAV ITEM
 export const createAdminNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, label, iconName, isWorking } = req.body;
@@ -47,6 +44,8 @@ export const createAdminNavItem = async (req: Request, res: Response): Promise<v
 
     if (!config.adminNav) config.adminNav = [];
     config.adminNav.push({ id: cleanId, label, iconName, isWorking });
+    
+    config.markModified('adminNav'); 
     await config.save();
     res.status(201).json({ success: true, data: config.adminNav });
   } catch (error: any) {
@@ -54,7 +53,6 @@ export const createAdminNavItem = async (req: Request, res: Response): Promise<v
   }
 };
 
-// 3. EDIT ADMIN NAV ITEM
 export const editAdminNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const targetId = req.params.targetId ? String(req.params.targetId).toLowerCase().trim() : '';
@@ -77,8 +75,7 @@ export const editAdminNavItem = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Force an explicit layout cast here to tell TS the reference object structure is safe and defined
-    const targetItem = config.adminNav[itemIndex] as IAdminNav | undefined;
+    const targetItem = config.adminNav[itemIndex];
     if (!targetItem) {
       res.status(404).json({ success: false, error: 'Target item reference lost.' });
       return;
@@ -99,7 +96,6 @@ export const editAdminNavItem = async (req: Request, res: Response): Promise<voi
     if (iconName !== undefined) targetItem.iconName = iconName;
     if (isWorking !== undefined) targetItem.isWorking = isWorking;
 
-    // Use markModified so Mongoose tracks changes inside core array mutations cleanly
     config.markModified('adminNav');
     await config.save();
     res.status(200).json({ success: true, data: targetItem });
@@ -108,7 +104,6 @@ export const editAdminNavItem = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// 4. DELETE ADMIN NAV ITEM
 export const deleteAdminNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id ? String(req.params.id).toLowerCase().trim() : '';
@@ -132,8 +127,30 @@ export const deleteAdminNavItem = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    config.markModified('adminNav'); 
     await config.save();
     res.status(200).json({ success: true, message: 'Admin nav item deleted successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const reorderAdminNav = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sortedItems } = req.body; 
+    
+    if (!Array.isArray(sortedItems)) {
+      res.status(400).json({ success: false, error: "Invalid payload format. Expected sortedItems array." });
+      return;
+    }
+
+    const config = await getOrCreateNavConfig();
+    config.adminNav = sortedItems;
+    
+    config.markModified('adminNav'); 
+    await config.save();
+
+    res.status(200).json({ success: true, data: config.adminNav });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -143,7 +160,6 @@ export const deleteAdminNavItem = async (req: Request, res: Response): Promise<v
 // USER / DISPLAY NAVIGATION FUNCTIONS
 // ==========================================
 
-// 1. GET ALL USER NAV ITEMS
 export const getUserNav = async (req: Request, res: Response): Promise<void> => {
   try {
     const config = await getOrCreateNavConfig();
@@ -160,7 +176,6 @@ export const getUserNav = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-// 2. CREATE USER NAV ITEM
 export const createUserNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, label, iconName, isVisible } = req.body;
@@ -180,6 +195,8 @@ export const createUserNavItem = async (req: Request, res: Response): Promise<vo
 
     if (!config.userNav) config.userNav = [];
     config.userNav.push({ id: cleanId, label, iconName, isVisible });
+    
+    config.markModified('userNav');
     await config.save();
     res.status(201).json({ success: true, data: config.userNav });
   } catch (error: any) {
@@ -187,7 +204,6 @@ export const createUserNavItem = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// 3. EDIT USER NAV ITEM
 export const editUserNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const targetId = req.params.targetId ? String(req.params.targetId).toLowerCase().trim() : '';
@@ -210,8 +226,7 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Force an explicit layout cast here to tell TS the reference object structure is safe and defined
-    const targetItem = config.userNav[itemIndex] as IUserNav | undefined;
+    const targetItem = config.userNav[itemIndex];
     if (!targetItem) {
       res.status(404).json({ success: false, error: 'Target item reference lost.' });
       return;
@@ -232,7 +247,6 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
     if (iconName !== undefined) targetItem.iconName = iconName;
     if (isVisible !== undefined) targetItem.isVisible = isVisible;
 
-    // Use markModified so Mongoose tracks changes inside core array mutations cleanly
     config.markModified('userNav');
     await config.save();
     res.status(200).json({ success: true, data: targetItem });
@@ -241,7 +255,6 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
   }
 };
 
-// 4. DELETE USER NAV ITEM
 export const deleteUserNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = req.params.id ? String(req.params.id).toLowerCase().trim() : '';
@@ -265,8 +278,30 @@ export const deleteUserNavItem = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    config.markModified('userNav');
     await config.save();
     res.status(200).json({ success: true, message: 'User nav item deleted successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const reorderUserNav = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sortedItems } = req.body;
+
+    if (!Array.isArray(sortedItems)) {
+      res.status(400).json({ success: false, error: 'sortedItems property must be a valid array.' });
+      return;
+    }
+
+    const config = await getOrCreateNavConfig();
+    config.userNav = sortedItems;
+
+    config.markModified('userNav');
+    await config.save();
+
+    res.status(200).json({ success: true, data: config.userNav });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }

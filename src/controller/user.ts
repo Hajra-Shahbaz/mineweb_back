@@ -5,6 +5,7 @@ import { uploadFileToS3 } from '../utils/s3Service.ts';
 /**
  * @desc    Create/Post profile data (Initial setup)
  * @route   POST /api/user
+ * @body    { name, email, phoneNumber, title, aboutText, subText }
  */
 export const createProfile = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -14,6 +15,7 @@ export const createProfile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Capture fields explicitly or fallback dynamically via spread operator
     const profileData = {
       ...req.body,
       profilePictures: req.body.profilePictures || []
@@ -47,6 +49,7 @@ export const getProfile = async (_req: Request, res: Response): Promise<void> =>
 /**
  * @desc    Edit/Update specific profile parts dynamically & stream file payloads to S3
  * @route   PUT /api/user
+ * @body    { name, email, phoneNumber, title, aboutText, subText, setActiveImageUrl }
  */
 export const editProfile = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -96,10 +99,11 @@ export const editProfile = async (req: Request, res: Response): Promise<void> =>
       delete updateFields.setActiveImageUrl;
     }
 
+    // 5. Execute dynamic database update
     const updatedProfile = await UserM.findOneAndUpdate(
       {},
       { $set: updateFields },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true } // runValidators: true forces email/phone formats to validate
     );
 
     res.status(200).json(updatedProfile);

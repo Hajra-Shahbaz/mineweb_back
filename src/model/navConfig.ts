@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 
-// 1. Structure for Admin-specific Navigation nodes
+// Structure for Admin-specific Navigation nodes
 export interface IAdminNav {
   id: string;        // Routing lookup target (e.g., 'messages')
   label: string;     // Text rendering string (e.g., 'Inbox Management')
@@ -8,7 +8,7 @@ export interface IAdminNav {
   isWorking: boolean; // Custom operational flag for development tracking
 }
 
-// 2. Structure for User/Display-specific Navigation nodes
+// Structure for User/Display-specific Navigation nodes
 export interface IUserNav {
   id: string;        // Routing lookup target (e.g., 'education')
   label: string;     // Text rendering string (e.g., 'Education')
@@ -16,7 +16,7 @@ export interface IUserNav {
   isVisible: boolean; // Visibility toggle master switch rule
 }
 
-// 3. Complete Master Layout Document Interface
+// Complete Master Layout Document Interface
 export interface INavConfig extends Document {
   adminNav: IAdminNav[];
   userNav: IUserNav[];

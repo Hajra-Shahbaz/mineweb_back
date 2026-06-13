@@ -9,10 +9,12 @@ interface IProfilePicture {
 // 2. TypeScript Interface definition matching all data fields
 export interface IUserM extends Document {
   name: string;
+  email: string;          // 🌟 Added email
+  phoneNumber?: string;   // 🌟 Added optional phone number
   title: string;          // e.g., "Full-Stack Web Developer"
   aboutText: string;      // Your main dynamic bio description
   subText?: string;       // An extra small tagline or introductory text
-  profilePictures: IProfilePicture[]; // 🌟 Added to type definitions list to fix ts(2353)
+  profilePictures: IProfilePicture[]; 
   resumeUrl?: string;     // Will store the S3 bucket object URL for your CV PDF
 }
 
@@ -21,6 +23,17 @@ const UserMSchema = new Schema<IUserM>({
   name: { 
     type: String, 
     required: true, 
+    trim: true 
+  },
+  email: {                // 🌟 Added email with validation
+    type: String, 
+    required: true, 
+    unique: true, 
+    lowercase: true, 
+    trim: true 
+  },
+  phoneNumber: {          // 🌟 Added phoneNumber
+    type: String, 
     trim: true 
   },
   title: { 

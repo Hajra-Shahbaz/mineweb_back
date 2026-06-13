@@ -4,28 +4,32 @@ import {
   createAdminNavItem,
   editAdminNavItem,
   deleteAdminNavItem,
+  reorderAdminNav,
   getUserNav,
   createUserNavItem,
   editUserNavItem,
-  deleteUserNavItem
-} from '../controller/navController.ts';
+  deleteUserNavItem,
+  reorderUserNav
+} from '../controller/navController';
 
 const router = Router();
 
 // ==========================================
-// ADMIN NAVIGATION ROUTING (isWorking state)
+// ADMIN NAVIGATION ROUTING
 // ==========================================
-router.get('/admin/nav', getAdminNav);                  // Get all Admin links
-router.post('/admin/nav', createAdminNavItem);            // Create new Admin link
-router.put('/admin/nav/:targetId', editAdminNavItem);     // Edit Admin link (modifies ID/state)
-router.delete('/admin/nav/:id', deleteAdminNavItem);      // Delete Admin link
+router.get('/admin', getAdminNav);              // GET /api/nav/admin
+router.post('/admin', createAdminNavItem);        // POST /api/nav/admin
+router.put('/admin/:targetId', editAdminNavItem); // PUT /api/nav/admin/:targetId
+router.delete('/admin/:id', deleteAdminNavItem);   // DELETE /api/nav/admin/:id
+router.patch('/admin/reorder', reorderAdminNav);   // PATCH /api/nav/admin/reorder
 
 // ==========================================
-// USER / DISPLAY NAVIGATION ROUTING (isVisible state)
+// USER / DISPLAY NAVIGATION ROUTING
 // ==========================================
-router.get('/user/nav', getUserNav);                    // Get all User links (pass ?visible=true for public portfolio layout)
-router.post('/user/nav', createUserNavItem);              // Create new User link
-router.put('/user/nav/:targetId', editUserNavItem);       // Edit User link (modifies ID/state)
-router.delete('/user/nav/:id', deleteUserNavItem);        // Delete User link
+router.get('/user', getUserNav);                // GET /api/nav/user
+router.post('/user', createUserNavItem);          // POST /api/nav/user
+router.put('/user/:targetId', editUserNavItem);   // PUT /api/nav/user/:targetId
+router.delete('/user/:id', deleteUserNavItem);     // DELETE /api/nav/user/:id
+router.patch('/user/reorder', reorderUserNav);     // PATCH /api/nav/user/reorder
 
 export default router;
