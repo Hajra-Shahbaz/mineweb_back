@@ -8,7 +8,7 @@ import TaskModel from '../model/listM.ts'
  */
 export const createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { subject, desc, deadline } = req.body;
+    const { subject, desc, deadline, startTime, endTime, priority } = req.body;
 
     // Validate necessary explicit input bindings
     if (!subject || !deadline) {
@@ -28,6 +28,9 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
       desc,
       currentDate: formattedCurrentDate,
       deadline,
+      startTime,
+      endTime,
+      priority, // If undefined, schema defaults to 'medium'
       isCompleted: false
     });
 
@@ -54,7 +57,7 @@ export const getAllTasks = async (_req: Request, res: Response, next: NextFuncti
     res.status(200).json({
       success: true,
       count: tasks.length,
-      data: tasks
+      data: tasks // Note: Virtual field `timeLeft` will be included in each task payload automatically
     });
   } catch (error) {
     next(error);
@@ -74,7 +77,7 @@ export const updateTask = async (req: Request, res: Response, next: NextFunction
     const updatedTask = await TaskModel.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true, runValidators: true } // Return modified record layout context and enforce model validations
+      { new: true, runValidators: true } // Enforces priority enums during update queries
     );
 
     if (!updatedTask) {
