@@ -1,125 +1,94 @@
-import type { Request, Response } from 'express';
-import { SkillM } from '../model/skillM.ts';
+import { type Request, type Response } from 'express';
+import { CategoryM, SkillM } from '../model/skillM.ts';
+import { uploadFileToS3 } from '../utils/s3Service.ts';
 
-/**
- * @desc    Add a new skill with a completely custom or traditional category
- * @route   POST /api/skill
- */
+// --- Category Functions ---
+export const addCategory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    let categoryData = { ...req.body };
+
+    const image1 = files?.image1?.[0];
+    const image2 = files?.image2?.[0];
+
+    if (image1) categoryData.image1 = await uploadFileToS3(image1, 'categories');
+    if (image2) categoryData.image2 = await uploadFileToS3(image2, 'categories');
+
+    const lastItem = await CategoryM.findOne().sort({ order: -1 });
+    categoryData.order = lastItem ? lastItem.order + 1 : 0;
+
+    const newCategory = new CategoryM(categoryData);
+    await newCategory.save();
+    res.status(201).json(newCategory);
+  } catch (error) { res.status(500).json({ message: 'Error adding category', error }); }
+};
+
+export const editCategory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    let updateFields = { ...req.body };
+
+    const image1 = files?.image1?.[0];
+    const image2 = files?.image2?.[0];
+
+    if (image1) updateFields.image1 = await uploadFileToS3(image1, 'categories');
+    if (image2) updateFields.image2 = await uploadFileToS3(image2, 'categories');
+
+    const updated = await CategoryM.findByIdAndUpdate(req.params.id, { $set: updateFields }, { new: true });
+    res.status(200).json(updated);
+  } catch (error) { res.status(500).json({ message: 'Error updating category', error }); }
+};
+
+export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    await CategoryM.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Category deleted' });
+  } catch (error) { res.status(500).json({ message: 'Error deleting', error }); }
+};
+
+// --- Skill Functions ---
 export const addSkill = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, category } = req.body;
-
-    if (!name || !category) {
-      res.status(400).json({ message: 'Both skill name and category are required.' });
-      return;
-    }
-
-    const existingSkill = await SkillM.findOne({ name: name.trim() });
-    if (existingSkill) {
-      res.status(400).json({ message: 'This skill is already added!' });
-      return;
-    }
-
-    // 🌟 Calculate the next sequential layout position index
+    const { name, categories } = req.body;
     const lastItem = await SkillM.findOne().sort({ order: -1 });
-    const nextOrderValue = lastItem ? lastItem.order + 1 : 0;
-
-    // Creating the skill works smoothly with any custom category string the user inputs
-    const newSkill = new SkillM({ 
-      name, 
-      category, 
-      order: nextOrderValue 
-    });
-    
-    const savedSkill = await newSkill.save();
-    res.status(201).json(savedSkill);
-  } catch (error) {
-    res.status(500).json({ message: 'Error adding skill', error });
-  }
+    const newSkill = new SkillM({ name, categories, order: lastItem ? lastItem.order + 1 : 0 });
+    await newSkill.save();
+    res.status(201).json(newSkill);
+  } catch (error) { res.status(500).json({ message: 'Error adding skill', error }); }
 };
 
-/**
- * @desc    Get all skills (Sorted by custom order sequence index)
- * @route   GET /api/skill
- */
 export const getAllSkills = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // 🌟 Returns data sorted exactly how you dragged it in your layout control suite
-    const skills = await SkillM.find().sort({ order: 1 });
+    const skills = await SkillM.find().sort({ order: 1 }).populate('categories');
     res.status(200).json(skills);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching skills', error });
-  }
+  } catch (error) { res.status(500).json({ message: 'Error fetching', error }); }
 };
 
-/**
- * @desc    Update an item's fields or change it to an entirely new category
- * @route   PUT /api/skill/:id
- */
 export const editSkill = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-
-    const updatedSkill = await SkillM.findByIdAndUpdate(
-      id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedSkill) {
-      res.status(404).json({ message: 'Skill not found with that ID' });
-      return;
-    }
-
-    res.status(200).json(updatedSkill);
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating skill', error });
-  }
+    const updated = await SkillM.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+    res.status(200).json(updated);
+  } catch (error) { res.status(500).json({ message: 'Error updating', error }); }
 };
 
-/**
- * @desc    Delete a specific skill from your stack
- * @route   DELETE /api/skill/:id
- */
 export const deleteSkill = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const deletedSkill = await SkillM.findByIdAndDelete(id);
-
-    if (!deletedSkill) {
-      res.status(404).json({ message: 'Skill not found with that ID' });
-      return;
-    }
-
-    res.status(200).json({ message: 'Skill deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting skill', error });
-  }
+    await SkillM.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Skill deleted' });
+  } catch (error) { res.status(500).json({ message: 'Error deleting', error }); }
 };
 
-/**
- * @desc    Sync order sequence layout after a frontend drag-and-drop movement
- * @route   PUT /api/skill/reorder
- */
-export const reorderSkills = async (req: Request, res: Response): Promise<void> => {
+// --- Reorder Helpers ---
+const reorderItems = async (req: Request, res: Response, model: any): Promise<void> => {
   try {
     const { totalSequence } = req.body;
-
-    if (!Array.isArray(totalSequence)) {
-      res.status(400).json({ message: 'Invalid payload structure. Array required.' });
-      return;
-    }
-
-    const bulkOperations = totalSequence.map((item: { id: string; order: number }) => ({
-      updateOne: {
-        filter: { _id: item.id },
-        update: { $set: { order: item.order } },
-      },
+    const bulkOps = totalSequence.map((item: { id: string; order: number }) => ({
+      updateOne: { filter: { _id: item.id }, update: { $set: { order: item.order } } }
     }));
-
-    await SkillM.bulkWrite(bulkOperations);
-    res.status(200).json({ message: 'Skill sequence alignment updated successfully!' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error reordering skill records', error });
-  }
+    await model.bulkWrite(bulkOps);
+    res.status(200).json({ message: 'Sequence updated' });
+  } catch (error) { res.status(500).json({ message: 'Error reordering', error }); }
 };
+
+export const reorderCategory = (req: Request, res: Response) => reorderItems(req, res, CategoryM);
+export const reorderSkills = (req: Request, res: Response) => reorderItems(req, res, SkillM);

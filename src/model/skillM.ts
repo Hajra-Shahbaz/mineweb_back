@@ -1,31 +1,33 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
+// --- Category Model ---
+export interface ICategory extends Document {
+  name: string;
+  image1?: string;
+  image2?: string;
+  order: number;
+}
+
+const CategorySchema = new Schema<ICategory>({
+  name: { type: String, required: true, unique: true, trim: true, lowercase: true },
+  image1: String,
+  image2: String,
+  order: { type: Number, default: 0 }
+}, { timestamps: true });
+
+export const CategoryM = model<ICategory>('CategoryM', CategorySchema);
+
+// --- Skill Model ---
 export interface ISkillM extends Document {
   name: string;
-  category: string;
-  order: number; // 🌟 Added custom layout index sequencing sequence property
+  categories: Types.ObjectId[]; // Allows one skill to be in multiple categories
+  order: number;
 }
 
 const SkillMSchema = new Schema<ISkillM>({
-  name: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    trim: true 
-  },
-  category: { 
-    type: String, 
-    required: true, 
-    trim: true,
-    lowercase: true // Automatically normalizes custom categories (e.g. "Web3" -> "web3")
-  },
-  order: {
-    type: Number,
-    required: true,
-    default: 0
-  }
-}, { 
-  timestamps: true 
-});
+  name: { type: String, required: true, unique: true, trim: true },
+  categories: [{ type: Schema.Types.ObjectId, ref: 'CategoryM' }],
+  order: { type: Number, default: 0 }
+}, { timestamps: true });
 
 export const SkillM = model<ISkillM>('SkillM', SkillMSchema);
