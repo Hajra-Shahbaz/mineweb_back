@@ -31,8 +31,9 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
     const image1 = files?.image1?.[0];
     const image2 = files?.image2?.[0];
 
-    if (image1) updateFields.image1 = await uploadFileToS3(image1, 'categories');
-    if (image2) updateFields.image2 = await uploadFileToS3(image2, 'categories');
+    // Use 'as Express.Multer.File' to explicitly tell TypeScript the type
+    if (image1) updateFields.image1 = await uploadFileToS3(image1 as Express.Multer.File, 'categories');
+    if (image2) updateFields.image2 = await uploadFileToS3(image2 as Express.Multer.File, 'categories');
 
     const updated = await CategoryM.findByIdAndUpdate(req.params.id, { $set: updateFields }, { new: true });
     res.status(200).json(updated);
