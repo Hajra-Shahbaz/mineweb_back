@@ -55,7 +55,7 @@ app.use('/api/experience', experienceRouter); // <--- 4. Register the experience
 app.use('/api/project', projectRouter);
 app.use('/api/blog', blogRouter);
 app.use('/api/service', serviceRouter);
-app.use('/api/contact', contactRouter);
+app.use('/api/contact', contactRouter); 
 app.use('/api/social', socialRouter);
 app.use('/api/education', educationRouter);
 app.use('/api/nav', navRouter);

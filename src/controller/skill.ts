@@ -23,6 +23,15 @@ export const addCategory = async (req: Request, res: Response): Promise<void> =>
   } catch (error) { res.status(500).json({ message: 'Error adding category', error }); }
 };
 
+export const getAllCategories = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const categories = await CategoryM.find().sort({ order: 1 });
+    res.status(200).json(categories);
+  } catch (error) { 
+    res.status(500).json({ message: 'Error fetching categories', error }); 
+  }
+};
+
 export const editCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;

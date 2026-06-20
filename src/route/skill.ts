@@ -9,15 +9,16 @@ import {
   getAllSkills,
   editSkill,
   deleteSkill,
-  reorderSkills
+  reorderSkills,
+  getAllCategories
 } from '../controller/skill.ts';
 
 const router = Router();
 
 // --- Category Routes ---
 router.route('/category')
+  .get(getAllCategories) // Add this line
   .post(upload.fields([{ name: 'image1' }, { name: 'image2' }]), addCategory);
-
 router.route('/category/reorder')
   .put(reorderCategory);
 
