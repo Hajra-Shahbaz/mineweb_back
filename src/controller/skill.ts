@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { SkillModel } from '../model/skillM.ts';
-import { uploadFileToS3 } from '../utils/s3Service.ts';
+import { uploadFileToS3, deleteFileFromS3 } from '../utils/s3Service.ts';
 
 // --- CATEGORY FUNCTIONS ---
 
@@ -88,7 +88,7 @@ export const addSkillToCategory = async (req: Request, res: Response): Promise<v
 export const editCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { category } = req.body;
+    const { category, deleteImage1, deleteImage2 } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
 
     // Find existing category
@@ -100,28 +100,89 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
 
     // Build update object
     const updateData: any = {};
+    const unsetData: any = {};
+    
     if (category) updateData.category = category.trim();
 
-    // Upload new images if provided
-    if (files?.['image1']?.[0]) {
+    // Handle Image 1
+    if (deleteImage1 === 'true') {
+      // Delete existing image from S3 if it exists
+      if (existingCategory.image1) {
+        try {
+          await deleteFileFromS3(existingCategory.image1);
+          console.log('Deleted image1 from S3:', existingCategory.image1);
+        } catch (error) {
+          console.error('Error deleting image1 from S3:', error);
+          // Continue even if S3 deletion fails
+        }
+      }
+      unsetData.image1 = ""; // Remove from database using $unset
+    } else if (files?.['image1']?.[0]) {
+      // Upload new image if provided
       console.log('Uploading new image1...');
+      // Delete old image if exists
+      if (existingCategory.image1) {
+        try {
+          await deleteFileFromS3(existingCategory.image1);
+          console.log('Deleted old image1 from S3:', existingCategory.image1);
+        } catch (error) {
+          console.error('Error deleting old image1 from S3:', error);
+        }
+      }
       updateData.image1 = await uploadFileToS3(files['image1'][0], 'categories');
       console.log('New image1 uploaded:', updateData.image1);
     }
-    
-    if (files?.['image2']?.[0]) {
+
+    // Handle Image 2
+    if (deleteImage2 === 'true') {
+      // Delete existing image from S3 if it exists
+      if (existingCategory.image2) {
+        try {
+          await deleteFileFromS3(existingCategory.image2);
+          console.log('Deleted image2 from S3:', existingCategory.image2);
+        } catch (error) {
+          console.error('Error deleting image2 from S3:', error);
+          // Continue even if S3 deletion fails
+        }
+      }
+      unsetData.image2 = ""; // Remove from database using $unset
+    } else if (files?.['image2']?.[0]) {
+      // Upload new image if provided
       console.log('Uploading new image2...');
+      // Delete old image if exists
+      if (existingCategory.image2) {
+        try {
+          await deleteFileFromS3(existingCategory.image2);
+          console.log('Deleted old image2 from S3:', existingCategory.image2);
+        } catch (error) {
+          console.error('Error deleting old image2 from S3:', error);
+        }
+      }
       updateData.image2 = await uploadFileToS3(files['image2'][0], 'categories');
       console.log('New image2 uploaded:', updateData.image2);
     }
 
+    // Build the update query
+    const updateQuery: any = {};
+    if (Object.keys(updateData).length > 0) {
+      updateQuery.$set = updateData;
+    }
+    if (Object.keys(unsetData).length > 0) {
+      updateQuery.$unset = unsetData;
+    }
+
     const updated = await SkillModel.findByIdAndUpdate(
       id,
-      { $set: updateData },
+      updateQuery,
       { new: true }
     );
     
-    console.log('Category updated with images:', { image1: updated?.image1, image2: updated?.image2 });
+    console.log('Category updated:', { 
+      image1: updated?.image1, 
+      image2: updated?.image2,
+      deletedImage1: deleteImage1 === 'true',
+      deletedImage2: deleteImage2 === 'true'
+    });
     res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating category:', error);
@@ -131,12 +192,32 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
 
 export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const deleted = await SkillModel.findByIdAndDelete(req.params.id);
-    if (!deleted) {
+    const category = await SkillModel.findById(req.params.id);
+    if (!category) {
       res.status(404).json({ message: 'Category not found' });
       return;
     }
-    res.status(200).json({ message: 'Category removed' });
+
+    // Delete images from S3 if they exist
+    if (category.image1) {
+      try {
+        await deleteFileFromS3(category.image1);
+        console.log('Deleted image1 from S3:', category.image1);
+      } catch (error) {
+        console.error('Error deleting image1 from S3:', error);
+      }
+    }
+    if (category.image2) {
+      try {
+        await deleteFileFromS3(category.image2);
+        console.log('Deleted image2 from S3:', category.image2);
+      } catch (error) {
+        console.error('Error deleting image2 from S3:', error);
+      }
+    }
+
+    await SkillModel.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Category removed successfully' });
   } catch (error) {
     console.error('Error deleting category:', error);
     res.status(500).json({ message: 'Error deleting category', error: error instanceof Error ? error.message : error });
@@ -171,7 +252,7 @@ export const reorderCategories = async (req: Request, res: Response): Promise<vo
     }));
     
     await SkillModel.bulkWrite(bulkOps);
-    res.status(200).json({ message: 'Categories reordered' });
+    res.status(200).json({ message: 'Categories reordered successfully' });
   } catch (error) {
     console.error('Error reordering:', error);
     res.status(500).json({ message: 'Error reordering', error: error instanceof Error ? error.message : error });
@@ -218,7 +299,7 @@ export const deleteSkill = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
-    res.status(200).json({ message: 'Skill deleted', category: updated });
+    res.status(200).json({ message: 'Skill deleted successfully', category: updated });
   } catch (error) {
     console.error('Error deleting skill:', error);
     res.status(500).json({ message: 'Error deleting skill', error: error instanceof Error ? error.message : error });
