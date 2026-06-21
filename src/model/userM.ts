@@ -6,33 +6,35 @@ interface IProfilePicture {
   isActive: boolean;
 }
 
-// 2. TypeScript Interface definition matching all data fields
+// 2. Updated TypeScript Interface
 export interface IUserM extends Document {
   name: string;
-  email: string;          // 🌟 Added email
-  phoneNumber?: string;   // 🌟 Added optional phone number
-  title: string;          // e.g., "Full-Stack Web Developer"
-  aboutText: string;      // Your main dynamic bio description
-  subText?: string;       // An extra small tagline or introductory text
-  profilePictures: IProfilePicture[]; 
-  resumeUrl?: string;     // Will store the S3 bucket object URL for your CV PDF
+  email: string;
+  phoneNumber?: string;
+  title: string;
+  aboutText: string;
+  subText?: string;
+  profilePictures: IProfilePicture[];
+  resumeUrl?: string;
+  address?: string;     // 🌟 Added address
+  mainColor?: string;   // 🌟 Added mainColor
 }
 
-// 3. Mongoose Schema matching the interface definitions precisely
+// 3. Updated Mongoose Schema
 const UserMSchema = new Schema<IUserM>({
   name: { 
     type: String, 
     required: true, 
     trim: true 
   },
-  email: {                // 🌟 Added email with validation
+  email: { 
     type: String, 
     required: true, 
     unique: true, 
     lowercase: true, 
     trim: true 
   },
-  phoneNumber: {          // 🌟 Added phoneNumber
+  phoneNumber: { 
     type: String, 
     trim: true 
   },
@@ -58,10 +60,19 @@ const UserMSchema = new Schema<IUserM>({
   resumeUrl: { 
     type: String, 
     default: "" 
+  },
+  address: {            // 🌟 Added to Schema
+    type: String, 
+    trim: true 
+  },
+  mainColor: {          // 🌟 Added to Schema
+    type: String, 
+    trim: true,
+    default: "#000000" // Optional: default color
   }
 }, { 
-  timestamps: true // Tracks when you last modified your hero/about section
+  timestamps: true 
 });
 
-// 4. Export the model matching your specific file name
+// 4. Export the model
 export const UserM = model<IUserM>('UserM', UserMSchema);

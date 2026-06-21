@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { ProjectM } from '../model/projectM.ts';
 import { uploadFileToS3 } from '../utils/s3Service.ts';
+import mongoose from 'mongoose';
 
 /**
  * @desc    Add a new project + auto-calculate order sequence
@@ -8,10 +9,16 @@ import { uploadFileToS3 } from '../utils/s3Service.ts';
  */
 export const addProject = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Check for duplicate title
     if (req.body.title) {
-      const existingProject = await ProjectM.findOne({ title: req.body.title.trim() });
+      const existingProject = await ProjectM.findOne({ 
+        title: { $regex: new RegExp(`^${req.body.title.trim()}$`, 'i') } 
+      });
       if (existingProject) {
-        res.status(400).json({ message: 'A project with this title already exists.' });
+        res.status(400).json({ 
+          success: false,
+          message: 'A project with this title already exists.' 
+        });
         return;
       }
     }
@@ -25,14 +32,21 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
       order: nextOrderValue 
     };
 
+    // Handle techStack if it comes as string
     if (typeof projectData.techStack === 'string') {
       try {
         projectData.techStack = JSON.parse(projectData.techStack);
       } catch {
-        projectData.techStack = projectData.techStack.split(',').map((s: string) => s.trim());
+        projectData.techStack = projectData.techStack.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
     }
 
+    // Ensure techStack is an array
+    if (!Array.isArray(projectData.techStack)) {
+      projectData.techStack = [];
+    }
+
+    // Upload image if file is provided
     if (req.file) {
       const uploadedUrl = await uploadFileToS3(req.file, 'projects');
       projectData.imageUrl = uploadedUrl;
@@ -40,14 +54,27 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
 
     const newProject = new ProjectM(projectData);
     const savedProject = await newProject.save();
-    res.status(201).json(savedProject);
+    
+    res.status(201).json({
+      success: true,
+      data: savedProject,
+      message: 'Project created successfully'
+    });
 
   } catch (error: any) {
     if (error.code === 11000) {
-      res.status(400).json({ message: 'Duplicate error: A project with this title already exists.' });
+      res.status(400).json({ 
+        success: false,
+        message: 'Duplicate error: A project with this title already exists.' 
+      });
       return;
     }
-    res.status(500).json({ message: 'Error adding project', error });
+    console.error('Error adding project:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error adding project', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -58,10 +85,63 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
 export const getAllProjects = async (_req: Request, res: Response): Promise<void> => {
   try {
     // Sorted exactly by your manual administrative alignment sequence
-    const projects = await ProjectM.find().sort({ order: 1 });
-    res.status(200).json(projects);
+    const projects = await ProjectM.find()
+      .sort({ order: 1 })
+      .lean();
+    
+    res.status(200).json({
+      success: true,
+      count: projects.length,
+      data: projects
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching projects', error });
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching projects', 
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Get a single project by ID
+ * @route   GET /api/project/:id
+ */
+export const getProjectById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    
+    // Fix: Use isValidObjectId instead of ObjectId.isValid
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format'
+      });
+      return;
+    }
+
+    const project = await ProjectM.findById(id).lean();
+    
+    if (!project) {
+      res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: project
+    });
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching project',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   }
 };
 
@@ -72,32 +152,59 @@ export const getAllProjects = async (_req: Request, res: Response): Promise<void
 export const editProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    
+    // Fix: Use isValidObjectId instead of ObjectId.isValid
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format'
+      });
+      return;
+    }
+
     let updateFields = { ...req.body };
 
+    // Check for duplicate title (excluding current project)
     if (updateFields.title) {
-      // Fixed with an explicit type cast to solve the query signature verification issue
       const duplicateCheck = await ProjectM.findOne({ 
-        title: updateFields.title.trim(), 
-        _id: { $ne: id as any } 
+        title: { $regex: new RegExp(`^${updateFields.title.trim()}$`, 'i') },
+        _id: { $ne: id }
       });
+      
       if (duplicateCheck) {
-        res.status(400).json({ message: 'Another project already uses this title.' });
+        res.status(400).json({
+          success: false,
+          message: 'Another project already uses this title.'
+        });
         return;
       }
     }
 
+    // Handle techStack if it comes as string
     if (typeof updateFields.techStack === 'string') {
       try {
         updateFields.techStack = JSON.parse(updateFields.techStack);
       } catch {
-        updateFields.techStack = updateFields.techStack.split(',').map((s: string) => s.trim());
+        updateFields.techStack = updateFields.techStack.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
     }
 
+    // Ensure techStack is an array
+    if (updateFields.techStack !== undefined && !Array.isArray(updateFields.techStack)) {
+      updateFields.techStack = [];
+    }
+
+    // Upload new image if file is provided
     if (req.file) {
       const uploadedUrl = await uploadFileToS3(req.file, 'projects');
       updateFields.imageUrl = uploadedUrl;
     }
+
+    // Remove fields that shouldn't be updated directly
+    delete updateFields._id;
+    delete updateFields.__v;
+    delete updateFields.createdAt;
+    delete updateFields.updatedAt;
 
     const updatedProject = await ProjectM.findByIdAndUpdate(
       id,
@@ -106,17 +213,32 @@ export const editProject = async (req: Request, res: Response): Promise<void> =>
     );
 
     if (!updatedProject) {
-      res.status(404).json({ message: 'Project not found' });
+      res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
       return;
     }
 
-    res.status(200).json(updatedProject);
+    res.status(200).json({
+      success: true,
+      data: updatedProject,
+      message: 'Project updated successfully'
+    });
   } catch (error: any) {
     if (error.code === 11000) {
-      res.status(400).json({ message: 'Duplicate error: A project with this title already exists.' });
+      res.status(400).json({
+        success: false,
+        message: 'Duplicate error: A project with this title already exists.'
+      });
       return;
     }
-    res.status(500).json({ message: 'Error updating project', error });
+    console.error('Error updating project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating project',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -127,16 +249,44 @@ export const editProject = async (req: Request, res: Response): Promise<void> =>
 export const deleteProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const deletedProject = await ProjectM.findByIdAndDelete(id);
-
-    if (!deletedProject) {
-      res.status(404).json({ message: 'Project not found' });
+    
+    // Fix: Use isValidObjectId instead of ObjectId.isValid
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format'
+      });
       return;
     }
 
-    res.status(200).json({ message: 'Project deleted successfully' });
+    const deletedProject = await ProjectM.findByIdAndDelete(id);
+
+    if (!deletedProject) {
+      res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+      return;
+    }
+
+    // Optional: Reorder remaining projects to fill the gap
+    await ProjectM.updateMany(
+      { order: { $gt: deletedProject.order } },
+      { $inc: { order: -1 } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Project deleted successfully',
+      data: deletedProject
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting project', error });
+    console.error('Error deleting project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting project',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   }
 };
 
@@ -148,11 +298,28 @@ export const reorderProjects = async (req: Request, res: Response): Promise<void
   try {
     const { totalSequence } = req.body;
 
-    if (!Array.isArray(totalSequence)) {
-      res.status(400).json({ message: 'Invalid payload structure. Array required.' });
+    if (!Array.isArray(totalSequence) || totalSequence.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid payload structure. Array required.'
+      });
       return;
     }
 
+    // Validate all items have required fields
+    const isValid = totalSequence.every(
+      (item: any) => item.id && typeof item.order === 'number'
+    );
+
+    if (!isValid) {
+      res.status(400).json({
+        success: false,
+        message: 'Each item must have id and order fields'
+      });
+      return;
+    }
+
+    // Perform bulk write operation
     const bulkOperations = totalSequence.map((item: { id: string; order: number }) => ({
       updateOne: {
         filter: { _id: item.id },
@@ -160,9 +327,141 @@ export const reorderProjects = async (req: Request, res: Response): Promise<void
       },
     }));
 
-    await ProjectM.bulkWrite(bulkOperations);
-    res.status(200).json({ message: 'Projects sequence alignment updated successfully!' });
+    const result = await ProjectM.bulkWrite(bulkOperations);
+
+    res.status(200).json({
+      success: true,
+      message: 'Projects reordered successfully',
+      data: {
+        matched: result.matchedCount,
+        modified: result.modifiedCount
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error reordering projects records', error });
+    console.error('Error reordering projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error reordering projects',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Toggle project visibility (hide/show)
+ * @route   PATCH /api/project/:id/toggle-visibility
+ */
+export const toggleProjectVisibility = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    
+    // Fix: Use isValidObjectId instead of ObjectId.isValid
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format'
+      });
+      return;
+    }
+
+    const project = await ProjectM.findById(id);
+    
+    if (!project) {
+      res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+      return;
+    }
+
+    // Fix: Use direct update instead of instance method
+    const updatedProject = await ProjectM.findByIdAndUpdate(
+      id,
+      { $set: { isHidden: !project.isHidden } },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: updatedProject,
+      message: `Project ${updatedProject?.isHidden ? 'hidden' : 'shown'} successfully`
+    });
+  } catch (error) {
+    console.error('Error toggling project visibility:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error toggling project visibility',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Get only visible projects (for frontend display)
+ * @route   GET /api/project/visible
+ */
+export const getVisibleProjects = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    // Fix: Use direct query instead of static method
+    const projects = await ProjectM.find({ isHidden: false }).sort({ order: 1 }).lean();
+    
+    res.status(200).json({
+      success: true,
+      count: projects.length,
+      data: projects
+    });
+  } catch (error) {
+    console.error('Error fetching visible projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching visible projects',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
+  }
+};
+
+/**
+ * @desc    Bulk delete projects
+ * @route   DELETE /api/project/bulk
+ */
+export const bulkDeleteProjects = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Array of project IDs is required'
+      });
+      return;
+    }
+
+    // Fix: Use isValidObjectId instead of ObjectId.isValid
+    const invalidIds = ids.filter(id => !mongoose.isValidObjectId(id));
+    if (invalidIds.length > 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid project ID format',
+        invalidIds
+      });
+      return;
+    }
+
+    const result = await ProjectM.deleteMany({ _id: { $in: ids } });
+
+    res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} project(s) deleted successfully`,
+      data: {
+        deletedCount: result.deletedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error bulk deleting projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting projects',
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   }
 };

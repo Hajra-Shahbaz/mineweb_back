@@ -8,6 +8,11 @@ export const addCategory = async (req: Request, res: Response): Promise<void> =>
   try {
     const { category } = req.body;
     
+    if (!category || !category.trim()) {
+      res.status(400).json({ message: 'Category name is required' });
+      return;
+    }
+
     const existingCategory = await SkillModel.findOne({ category: category.trim() });
     if (existingCategory) {
       res.status(400).json({ message: 'Category already exists' });
@@ -54,7 +59,13 @@ export const addCategory = async (req: Request, res: Response): Promise<void> =>
 export const addSkillToCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     const { categoryId } = req.params;
-    const { skill, order } = req.body;
+    const { skill, order, isAchieved, percentage } = req.body;
+
+    // Validate ObjectId without importing mongoose
+    if (!categoryId || categoryId.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
 
     const category = await SkillModel.findById(categoryId);
     if (!category) {
@@ -62,18 +73,38 @@ export const addSkillToCategory = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    if (!skill || !skill.trim()) {
+      res.status(400).json({ message: 'Skill name is required' });
+      return;
+    }
+
+    // Check if skill already exists in category
+    const skillExists = category.skills.some(
+      (s) => s.skill.toLowerCase() === skill.trim().toLowerCase()
+    );
+    
+    if (skillExists) {
+      res.status(400).json({ message: 'Skill already exists in this category' });
+      return;
+    }
+
+    const skillOrder = order !== undefined ? order : (category.skills?.length || 0);
+    
     const updatedCategory = await SkillModel.findByIdAndUpdate(
       categoryId,
       { 
         $push: { 
           skills: { 
             skill: skill.trim(), 
-            order: order !== undefined ? order : (category.skills?.length || 0) 
+            order: skillOrder,
+            isAchieved: isAchieved || false,
+            percentage: percentage || 0
           } 
         } 
       },
       { new: true }
     );
+    
     res.status(201).json(updatedCategory);
   } catch (error) {
     console.error('Error adding skill:', error);
@@ -94,6 +125,12 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
     console.log('  - deleteImage2:', deleteImage2, 'type:', typeof deleteImage2);
     console.log('  - Files:', files ? Object.keys(files) : 'none');
 
+    // Validate ObjectId without importing mongoose
+    if (!id || id.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
     // Find existing category
     const existingCategory = await SkillModel.findById(id);
     if (!existingCategory) {
@@ -112,7 +149,20 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
     const updateData: any = {};
     const unsetData: any = {};
     
-    if (category) updateData.category = category.trim();
+    if (category && category.trim()) {
+      // Check if new category name conflicts with existing
+      const categoryExists = await SkillModel.findOne({ 
+        category: category.trim(), 
+        _id: { $ne: id } 
+      });
+      
+      if (categoryExists) {
+        res.status(400).json({ message: 'Category name already exists' });
+        return;
+      }
+      
+      updateData.category = category.trim();
+    }
 
     // Handle Image 1 - Check for both string 'true' and boolean true
     const shouldDeleteImage1 = deleteImage1 === 'true' || deleteImage1 === true;
@@ -218,7 +268,15 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
 
 export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const category = await SkillModel.findById(req.params.id);
+    const { id } = req.params;
+
+    // Validate ObjectId without importing mongoose
+    if (!id || id.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
+    const category = await SkillModel.findById(id);
     if (!category) {
       res.status(404).json({ message: 'Category not found' });
       return;
@@ -242,7 +300,7 @@ export const deleteCategory = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    await SkillModel.findByIdAndDelete(req.params.id);
+    await SkillModel.findByIdAndDelete(id);
     res.status(200).json({ message: 'Category removed successfully' });
   } catch (error) {
     console.error('Error deleting category:', error);
@@ -261,6 +319,29 @@ export const getAllData = async (_req: Request, res: Response): Promise<void> =>
   }
 };
 
+export const getCategoryById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId without importing mongoose
+    if (!id || id.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
+    const category = await SkillModel.findById(id);
+    if (!category) {
+      res.status(404).json({ message: 'Category not found' });
+      return;
+    }
+
+    res.status(200).json(category);
+  } catch (error) {
+    console.error('Error fetching category:', error);
+    res.status(500).json({ message: 'Error fetching category', error: error instanceof Error ? error.message : error });
+  }
+};
+
 export const reorderCategories = async (req: Request, res: Response): Promise<void> => {
   try {
     const { totalSequence } = req.body;
@@ -270,6 +351,24 @@ export const reorderCategories = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    if (totalSequence.length === 0) {
+      res.status(400).json({ message: 'Sequence array cannot be empty' });
+      return;
+    }
+
+    // Validate all items have id and order
+    for (const item of totalSequence) {
+      if (!item.id || item.order === undefined) {
+        res.status(400).json({ message: 'Each item must have id and order' });
+        return;
+      }
+      // Validate ObjectId without importing mongoose
+      if (!item.id || item.id.length !== 24) {
+        res.status(400).json({ message: `Invalid ID format: ${item.id}` });
+        return;
+      }
+    }
+
     const bulkOps = totalSequence.map((item: any) => ({
       updateOne: { 
         filter: { _id: item.id }, 
@@ -277,22 +376,62 @@ export const reorderCategories = async (req: Request, res: Response): Promise<vo
       }
     }));
     
-    await SkillModel.bulkWrite(bulkOps);
-    res.status(200).json({ message: 'Categories reordered successfully' });
+    const result = await SkillModel.bulkWrite(bulkOps);
+    console.log(`Reordered ${result.modifiedCount} categories`);
+    res.status(200).json({ message: 'Categories reordered successfully', modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error('Error reordering:', error);
     res.status(500).json({ message: 'Error reordering', error: error instanceof Error ? error.message : error });
   }
 };
 
+// --- SKILL FUNCTIONS ---
+
 export const editSkill = async (req: Request, res: Response): Promise<void> => {
   try {
     const { categoryId, skillId } = req.params;
-    const { skill } = req.body;
+    const { skill, isAchieved, percentage, order } = req.body;
+
+    // Validate ObjectId without importing mongoose
+    if (!categoryId || categoryId.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
+    if (!skillId || skillId.length !== 24) {
+      res.status(400).json({ message: 'Invalid skill ID format' });
+      return;
+    }
+
+    if (!skill || !skill.trim()) {
+      res.status(400).json({ message: 'Skill name is required' });
+      return;
+    }
+
+    // Build update object for skill
+    const updateObj: any = {
+      "skills.$.skill": skill.trim()
+    };
+
+    if (isAchieved !== undefined) {
+      updateObj["skills.$.isAchieved"] = isAchieved;
+    }
+
+    if (percentage !== undefined) {
+      if (percentage < 0 || percentage > 100) {
+        res.status(400).json({ message: 'Percentage must be between 0 and 100' });
+        return;
+      }
+      updateObj["skills.$.percentage"] = percentage;
+    }
+
+    if (order !== undefined) {
+      updateObj["skills.$.order"] = order;
+    }
 
     const updated = await SkillModel.findOneAndUpdate(
       { _id: categoryId, "skills._id": skillId },
-      { $set: { "skills.$.skill": skill.trim() } },
+      { $set: updateObj },
       { new: true }
     );
     
@@ -311,6 +450,17 @@ export const editSkill = async (req: Request, res: Response): Promise<void> => {
 export const deleteSkill = async (req: Request, res: Response): Promise<void> => {
   try {
     const { categoryId, skillId } = req.params;
+
+    // Validate ObjectId without importing mongoose
+    if (!categoryId || categoryId.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
+    if (!skillId || skillId.length !== 24) {
+      res.status(400).json({ message: 'Invalid skill ID format' });
+      return;
+    }
     
     const updated = await SkillModel.findByIdAndUpdate(
       categoryId,
@@ -335,9 +485,36 @@ export const reorderSkillsInCategory = async (req: Request, res: Response): Prom
     const { categoryId } = req.params;
     const { newSkillsArray } = req.body;
 
+    // Validate ObjectId without importing mongoose
+    if (!categoryId || categoryId.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
     if (!Array.isArray(newSkillsArray)) {
       res.status(400).json({ message: 'Invalid payload structure. Array required.' });
       return;
+    }
+
+    if (newSkillsArray.length === 0) {
+      res.status(400).json({ message: 'Skills array cannot be empty' });
+      return;
+    }
+
+    // Validate each skill in the array
+    for (const skill of newSkillsArray) {
+      if (!skill._id) {
+        res.status(400).json({ message: 'Each skill must have an _id' });
+        return;
+      }
+      if (skill.order === undefined) {
+        res.status(400).json({ message: 'Each skill must have an order' });
+        return;
+      }
+      if (!skill.skill || !skill.skill.trim()) {
+        res.status(400).json({ message: 'Each skill must have a name' });
+        return;
+      }
     }
 
     const updatedCategory = await SkillModel.findByIdAndUpdate(
@@ -358,5 +535,57 @@ export const reorderSkillsInCategory = async (req: Request, res: Response): Prom
   } catch (error) {
     console.error('Error reordering skills:', error);
     res.status(500).json({ message: 'Error reordering skills', error: error instanceof Error ? error.message : error });
+  }
+};
+
+export const updateSkillAchievement = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { categoryId, skillId } = req.params;
+    const { isAchieved, percentage } = req.body;
+
+    // Validate ObjectId without importing mongoose
+    if (!categoryId || categoryId.length !== 24) {
+      res.status(400).json({ message: 'Invalid category ID format' });
+      return;
+    }
+
+    if (!skillId || skillId.length !== 24) {
+      res.status(400).json({ message: 'Invalid skill ID format' });
+      return;
+    }
+
+    if (percentage !== undefined && (percentage < 0 || percentage > 100)) {
+      res.status(400).json({ message: 'Percentage must be between 0 and 100' });
+      return;
+    }
+
+    const updateObj: any = {};
+    if (isAchieved !== undefined) {
+      updateObj["skills.$.isAchieved"] = isAchieved;
+    }
+    if (percentage !== undefined) {
+      updateObj["skills.$.percentage"] = percentage;
+    }
+
+    if (Object.keys(updateObj).length === 0) {
+      res.status(400).json({ message: 'No update fields provided' });
+      return;
+    }
+
+    const updated = await SkillModel.findOneAndUpdate(
+      { _id: categoryId, "skills._id": skillId },
+      { $set: updateObj },
+      { new: true }
+    );
+
+    if (!updated) {
+      res.status(404).json({ message: 'Category or skill not found' });
+      return;
+    }
+
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('Error updating skill achievement:', error);
+    res.status(500).json({ message: 'Error updating skill achievement', error: error instanceof Error ? error.message : error });
   }
 };

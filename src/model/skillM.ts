@@ -4,7 +4,9 @@ import { Schema, model, Document } from 'mongoose';
 export interface ISkill {
   skill: string;
      // URL or file path for secondary/hover image
-  order: number;      // Sequence for drag-and-drop within the category
+  order: number; 
+  isAchieved ?: boolean; // Optional field to indicate if the skill is achieved or not
+  percentage ?: number; // Optional field to indicate the percentage of achievement for the skill
 }
 
 // Interface for the Skill document
@@ -27,6 +29,16 @@ const SkillItemSchema = new Schema<ISkill>({
   order: { 
     type: Number, 
     default: 0 
+  },
+  isAchieved: {
+    type: Boolean,
+    default: false
+  },
+  percentage: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   }
 }, { _id: false });
 

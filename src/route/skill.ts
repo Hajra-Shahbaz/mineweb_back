@@ -3,13 +3,15 @@ import { upload } from '../middleware/uploadM.ts';
 import {
   addCategory,
   getAllData,
+  getCategoryById,
   editCategory,
   deleteCategory,
   reorderCategories,
   addSkillToCategory,
   editSkill,
   deleteSkill,
-  reorderSkillsInCategory
+  reorderSkillsInCategory,
+  updateSkillAchievement
 } from '../controller/skill.ts';
 
 const router = Router();
@@ -23,6 +25,7 @@ router.route('/reorder')
   .put(reorderCategories);
 
 router.route('/:id')
+  .get(getCategoryById)
   .put(upload.fields([{ name: 'image1', maxCount: 1 }, { name: 'image2', maxCount: 1 }]), editCategory)
   .delete(deleteCategory);
 
@@ -39,5 +42,9 @@ router.route('/:categoryId/reorder-skills')
 router.route('/:categoryId/skill/:skillId')
   .put(editSkill)
   .delete(deleteSkill);
+
+// Update skill achievement/percentage
+router.route('/:categoryId/skill/:skillId/achievement')
+  .patch(updateSkillAchievement);
 
 export default router;
