@@ -1,33 +1,57 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
-// --- Category Model ---
-export interface ICategory extends Document {
-  name: string;
-  image1?: string;
+// Interface for individual skill item
+export interface ISkill {
+  skill: string;
+     // URL or file path for secondary/hover image
+  order: number;      // Sequence for drag-and-drop within the category
+}
+
+// Interface for the Skill document
+export interface ISkillCategory extends Document {
+  category: string;
+  skills: ISkill[];
+   image1?: string;    // URL or file path for primary image
   image2?: string;
-  order: number;
+  order: number;      // Sequence for drag-and-drop of the whole category
 }
 
-const CategorySchema = new Schema<ICategory>({
-  name: { type: String, required: true, unique: true, trim: true, lowercase: true },
-  image1: String,
-  image2: String,
-  order: { type: Number, default: 0 }
-}, { timestamps: true });
+// Schema for individual skill items (as a sub-document)
+const SkillItemSchema = new Schema<ISkill>({
+  skill: { 
+    type: String, 
+    required: true, 
+    trim: true 
+  },
 
-export const CategoryM = model<ICategory>('CategoryM', CategorySchema);
+  order: { 
+    type: Number, 
+    default: 0 
+  }
+}, { _id: false });
 
-// --- Skill Model ---
-export interface ISkillM extends Document {
-  name: string;
-  categories: Types.ObjectId[]; // Allows one skill to be in multiple categories
-  order: number;
-}
+// Main Schema
+const SkillCategorySchema = new Schema<ISkillCategory>({
+  category: { 
+    type: String, 
+    required: true, 
+    trim: true 
+  },
+    image1: { 
+    type: String, 
+    trim: true 
+  },
+  image2: { 
+    type: String, 
+    trim: true 
+  },
+  skills: [SkillItemSchema],
+  order: { 
+    type: Number, 
+    default: 0 
+  }
+}, { 
+  timestamps: true 
+});
 
-const SkillMSchema = new Schema<ISkillM>({
-  name: { type: String, required: true, unique: true, trim: true },
-  categories: [{ type: Schema.Types.ObjectId, ref: 'CategoryM' }],
-  order: { type: Number, default: 0 }
-}, { timestamps: true });
-
-export const SkillM = model<ISkillM>('SkillM', SkillMSchema);
+export const SkillModel = model<ISkillCategory>('Skill', SkillCategorySchema);
