@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { ProjectM } from '../model/projectM.ts';
 import { uploadFileToS3 } from '../utils/s3Service.ts';
-import mongoose from 'mongoose';
 
 /**
  * @desc    Add a new project + auto-calculate order sequence
@@ -23,11 +22,11 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    // Dynamic sequencing: find the current highest position value
+    // Dynamic sequencing
     const lastItem = await ProjectM.findOne().sort({ order: -1 });
     const nextOrderValue = lastItem ? lastItem.order + 1 : 0;
 
-    let projectData = { 
+    let projectData: any = { 
       ...req.body,
       order: nextOrderValue 
     };
@@ -44,6 +43,14 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
     // Ensure techStack is an array
     if (!Array.isArray(projectData.techStack)) {
       projectData.techStack = [];
+    }
+
+    // Convert string booleans to actual booleans
+    if (projectData.isHidden !== undefined) {
+      projectData.isHidden = projectData.isHidden === 'true' || projectData.isHidden === true;
+    }
+    if (projectData.isWorking !== undefined) {
+      projectData.isWorking = projectData.isWorking === 'true' || projectData.isWorking === true;
     }
 
     // Upload image if file is provided
@@ -72,7 +79,7 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
     console.error('Error adding project:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error adding project', 
+      message: 'Error adding project',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -84,7 +91,6 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
  */
 export const getAllProjects = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Sorted exactly by your manual administrative alignment sequence
     const projects = await ProjectM.find()
       .sort({ order: 1 })
       .lean();
@@ -112,15 +118,6 @@ export const getProjectById = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     
-    // Fix: Use isValidObjectId instead of ObjectId.isValid
-    if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid project ID format'
-      });
-      return;
-    }
-
     const project = await ProjectM.findById(id).lean();
     
     if (!project) {
@@ -152,17 +149,7 @@ export const getProjectById = async (req: Request, res: Response): Promise<void>
 export const editProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    
-    // Fix: Use isValidObjectId instead of ObjectId.isValid
-    if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid project ID format'
-      });
-      return;
-    }
-
-    let updateFields = { ...req.body };
+    let updateFields: any = { ...req.body };
 
     // Check for duplicate title (excluding current project)
     if (updateFields.title) {
@@ -192,6 +179,14 @@ export const editProject = async (req: Request, res: Response): Promise<void> =>
     // Ensure techStack is an array
     if (updateFields.techStack !== undefined && !Array.isArray(updateFields.techStack)) {
       updateFields.techStack = [];
+    }
+
+    // Convert string booleans to actual booleans
+    if (updateFields.isHidden !== undefined) {
+      updateFields.isHidden = updateFields.isHidden === 'true' || updateFields.isHidden === true;
+    }
+    if (updateFields.isWorking !== undefined) {
+      updateFields.isWorking = updateFields.isWorking === 'true' || updateFields.isWorking === true;
     }
 
     // Upload new image if file is provided
@@ -250,15 +245,6 @@ export const deleteProject = async (req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
     
-    // Fix: Use isValidObjectId instead of ObjectId.isValid
-    if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid project ID format'
-      });
-      return;
-    }
-
     const deletedProject = await ProjectM.findByIdAndDelete(id);
 
     if (!deletedProject) {
@@ -269,7 +255,7 @@ export const deleteProject = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Optional: Reorder remaining projects to fill the gap
+    // Reorder remaining projects to fill the gap
     await ProjectM.updateMany(
       { order: { $gt: deletedProject.order } },
       { $inc: { order: -1 } }
@@ -306,7 +292,6 @@ export const reorderProjects = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Validate all items have required fields
     const isValid = totalSequence.every(
       (item: any) => item.id && typeof item.order === 'number'
     );
@@ -319,7 +304,6 @@ export const reorderProjects = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Perform bulk write operation
     const bulkOperations = totalSequence.map((item: { id: string; order: number }) => ({
       updateOne: {
         filter: { _id: item.id },
@@ -355,15 +339,6 @@ export const toggleProjectVisibility = async (req: Request, res: Response): Prom
   try {
     const { id } = req.params;
     
-    // Fix: Use isValidObjectId instead of ObjectId.isValid
-    if (!mongoose.isValidObjectId(id)) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid project ID format'
-      });
-      return;
-    }
-
     const project = await ProjectM.findById(id);
     
     if (!project) {
@@ -374,7 +349,6 @@ export const toggleProjectVisibility = async (req: Request, res: Response): Prom
       return;
     }
 
-    // Fix: Use direct update instead of instance method
     const updatedProject = await ProjectM.findByIdAndUpdate(
       id,
       { $set: { isHidden: !project.isHidden } },
@@ -402,7 +376,6 @@ export const toggleProjectVisibility = async (req: Request, res: Response): Prom
  */
 export const getVisibleProjects = async (_req: Request, res: Response): Promise<void> => {
   try {
-    // Fix: Use direct query instead of static method
     const projects = await ProjectM.find({ isHidden: false }).sort({ order: 1 }).lean();
     
     res.status(200).json({
@@ -432,17 +405,6 @@ export const bulkDeleteProjects = async (req: Request, res: Response): Promise<v
       res.status(400).json({
         success: false,
         message: 'Array of project IDs is required'
-      });
-      return;
-    }
-
-    // Fix: Use isValidObjectId instead of ObjectId.isValid
-    const invalidIds = ids.filter(id => !mongoose.isValidObjectId(id));
-    if (invalidIds.length > 0) {
-      res.status(400).json({
-        success: false,
-        message: 'Invalid project ID format',
-        invalidIds
       });
       return;
     }
