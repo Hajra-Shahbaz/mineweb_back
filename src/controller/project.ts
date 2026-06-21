@@ -8,6 +8,10 @@ import { uploadFileToS3 } from '../utils/s3Service.ts';
  */
 export const addProject = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('=== ADD PROJECT DEBUG ===');
+    console.log('Body:', req.body);
+    console.log('File:', req.file ? 'File received' : 'No file');
+
     // Check for duplicate title
     if (req.body.title) {
       const existingProject = await ProjectM.findOne({ 
@@ -55,8 +59,18 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
 
     // Upload image if file is provided
     if (req.file) {
-      const uploadedUrl = await uploadFileToS3(req.file, 'projects');
-      projectData.imageUrl = uploadedUrl;
+      try {
+        const uploadedUrl = await uploadFileToS3(req.file, 'projects');
+        projectData.imageUrl = uploadedUrl;
+      } catch (uploadError) {
+        console.error('S3 upload error:', uploadError);
+        res.status(500).json({ 
+          success: false,
+          message: 'Failed to upload image',
+          error: process.env.NODE_ENV === 'development' ? uploadError : undefined
+        });
+        return;
+      }
     }
 
     const newProject = new ProjectM(projectData);
@@ -69,6 +83,19 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
     });
 
   } catch (error: any) {
+    console.error('=== ERROR IN ADD PROJECT ===');
+    console.error('Error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({ 
+        success: false,
+        message: 'Validation failed',
+        errors: errors
+      });
+      return;
+    }
+    
     if (error.code === 11000) {
       res.status(400).json({ 
         success: false,
@@ -76,7 +103,7 @@ export const addProject = async (req: Request, res: Response): Promise<void> => 
       });
       return;
     }
-    console.error('Error adding project:', error);
+
     res.status(500).json({ 
       success: false,
       message: 'Error adding project',
@@ -191,8 +218,18 @@ export const editProject = async (req: Request, res: Response): Promise<void> =>
 
     // Upload new image if file is provided
     if (req.file) {
-      const uploadedUrl = await uploadFileToS3(req.file, 'projects');
-      updateFields.imageUrl = uploadedUrl;
+      try {
+        const uploadedUrl = await uploadFileToS3(req.file, 'projects');
+        updateFields.imageUrl = uploadedUrl;
+      } catch (uploadError) {
+        console.error('S3 upload error:', uploadError);
+        res.status(500).json({ 
+          success: false,
+          message: 'Failed to upload image',
+          error: process.env.NODE_ENV === 'development' ? uploadError : undefined
+        });
+        return;
+      }
     }
 
     // Remove fields that shouldn't be updated directly

@@ -1,19 +1,27 @@
 import multer from 'multer';
+import path from 'path';
 
-// Use memoryStorage so the file is held in temporary RAM instead of saved on your hard drive
+// Configure multer for memory storage (for S3 upload)
 const storage = multer.memoryStorage();
 
-// Validate that files match images or PDFs
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-    cb(null, true);
+// File filter to allow only images
+const fileFilter = (_req: any, file: any, cb: any) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (extname && mimetype) {
+    return cb(null, true);
   } else {
-    cb(new Error('Invalid file type! Upload images or PDF files only.') as any, false);
+    cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, webp, svg)'));
   }
 };
 
+// Create multer upload instance
 export const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // Cap the maximum size limit at 5MB
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: fileFilter,
 });

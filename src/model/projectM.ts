@@ -12,7 +12,6 @@ export interface IProjectM extends Document {
   isWorking: boolean;
 }
 
-// Using type assertion to bypass strict TypeScript checking
 const ProjectMSchema = new Schema<IProjectM>(
   {
     title: {
@@ -68,18 +67,9 @@ const ProjectMSchema = new Schema<IProjectM>(
   }
 );
 
-ProjectMSchema.pre('save', async function (this: IProjectM, next) {
-  if (this.isNew) {
-    try {
-      const count = await ProjectM.countDocuments();
-      this.order = count;
-      next();
-    } catch (error) {
-      next(error as Error);
-    }
-  } else {
-    next();
-  }
-});
+// Index for better query performance
+ProjectMSchema.index({ order: 1 });
+ProjectMSchema.index({ isHidden: 1 });
+ProjectMSchema.index({ title: 'text' });
 
 export const ProjectM = model<IProjectM>('ProjectM', ProjectMSchema);

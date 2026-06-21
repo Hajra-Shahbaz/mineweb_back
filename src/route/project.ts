@@ -15,7 +15,6 @@ import {
 const router = Router();
 
 // IMPORTANT: Specific routes MUST come before parameterized routes
-// Otherwise, Express will interpret "reorder" as an ID parameter
 
 // 1. Reorder endpoint (specific route)
 router.put('/reorder', reorderProjects);
