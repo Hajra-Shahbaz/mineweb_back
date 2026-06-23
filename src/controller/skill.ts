@@ -88,7 +88,18 @@ export const addSkillToCategory = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const skillOrder = order !== undefined ? order : (category.skills?.length || 0);
+    let skillOrder = order !== undefined ? order : category.skills.length;
+    
+    // If order is specified and not at the end, shift other skills
+    if (order !== undefined && order < category.skills.length) {
+      // Increment order of all skills from the insertion point
+      for (let i = order; i < category.skills.length; i++) {
+        await SkillModel.updateOne(
+          { _id: categoryId, 'skills.order': i },
+          { $inc: { 'skills.$.order': 1 } }
+        );
+      }
+    }
     
     const updatedCategory = await SkillModel.findByIdAndUpdate(
       categoryId,
@@ -408,7 +419,55 @@ export const editSkill = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Build update object for skill
+    if (percentage !== undefined && (percentage < 0 || percentage > 100)) {
+      res.status(400).json({ message: 'Percentage must be between 0 and 100' });
+      return;
+    }
+
+    // If order is being changed, handle reordering
+    if (order !== undefined) {
+      const category = await SkillModel.findById(categoryId);
+      if (!category) {
+        res.status(404).json({ message: 'Category not found' });
+        return;
+      }
+
+      const currentSkill = category.skills.find(s => s._id?.toString() === skillId);
+      if (!currentSkill) {
+        res.status(404).json({ message: 'Skill not found' });
+        return;
+      }
+
+      const oldOrder = currentSkill.order;
+      const newOrder = order;
+
+      if (oldOrder !== newOrder) {
+        // Update orders of other skills
+        if (newOrder < oldOrder) {
+          // Moving up - increment skills between new and old order
+          for (const skill of category.skills) {
+            if (skill._id?.toString() !== skillId && skill.order >= newOrder && skill.order < oldOrder) {
+              await SkillModel.updateOne(
+                { _id: categoryId, 'skills._id': skill._id },
+                { $inc: { 'skills.$.order': 1 } }
+              );
+            }
+          }
+        } else {
+          // Moving down - decrement skills between old and new order
+          for (const skill of category.skills) {
+            if (skill._id?.toString() !== skillId && skill.order > oldOrder && skill.order <= newOrder) {
+              await SkillModel.updateOne(
+                { _id: categoryId, 'skills._id': skill._id },
+                { $inc: { 'skills.$.order': -1 } }
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Build update object
     const updateObj: any = {
       "skills.$.skill": skill.trim()
     };
@@ -418,10 +477,6 @@ export const editSkill = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (percentage !== undefined) {
-      if (percentage < 0 || percentage > 100) {
-        res.status(400).json({ message: 'Percentage must be between 0 and 100' });
-        return;
-      }
       updateObj["skills.$.percentage"] = percentage;
     }
 
@@ -462,11 +517,39 @@ export const deleteSkill = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     
+    // Get the category first to find the skill's order
+    const category = await SkillModel.findById(categoryId);
+    if (!category) {
+      res.status(404).json({ message: 'Category not found' });
+      return;
+    }
+
+    const skillToDelete = category.skills.find(s => s._id?.toString() === skillId);
+    if (!skillToDelete) {
+      res.status(404).json({ message: 'Skill not found' });
+      return;
+    }
+
+    const deletedOrder = skillToDelete.order;
+
+    // Remove the skill
     const updated = await SkillModel.findByIdAndUpdate(
       categoryId,
       { $pull: { skills: { _id: skillId } } },
       { new: true }
     );
+
+    // Decrement order of skills that were after the deleted skill
+    if (updated) {
+      for (const skill of updated.skills) {
+        if (skill.order > deletedOrder) {
+          await SkillModel.updateOne(
+            { _id: categoryId, 'skills._id': skill._id },
+            { $inc: { 'skills.$.order': -1 } }
+          );
+        }
+      }
+    }
     
     if (!updated) {
       res.status(404).json({ message: 'Category not found' });
@@ -496,24 +579,22 @@ export const reorderSkillsInCategory = async (req: Request, res: Response): Prom
       return;
     }
 
-    if (newSkillsArray.length === 0) {
-      res.status(400).json({ message: 'Skills array cannot be empty' });
-      return;
-    }
-
-    // Validate each skill in the array
-    for (const skill of newSkillsArray) {
-      if (!skill._id) {
-        res.status(400).json({ message: 'Each skill must have an _id' });
-        return;
-      }
-      if (skill.order === undefined) {
-        res.status(400).json({ message: 'Each skill must have an order' });
-        return;
-      }
-      if (!skill.skill || !skill.skill.trim()) {
-        res.status(400).json({ message: 'Each skill must have a name' });
-        return;
+    // Allow empty array - this means remove all skills
+    if (newSkillsArray.length > 0) {
+      // Validate each skill in the array
+      for (const skill of newSkillsArray) {
+        if (!skill._id) {
+          res.status(400).json({ message: 'Each skill must have an _id' });
+          return;
+        }
+        if (skill.order === undefined) {
+          res.status(400).json({ message: 'Each skill must have an order' });
+          return;
+        }
+        if (!skill.skill || !skill.skill.trim()) {
+          res.status(400).json({ message: 'Each skill must have a name' });
+          return;
+        }
       }
     }
 

@@ -42,7 +42,7 @@ router.route('/:categoryId/reorder-skills')
 router.route('/:categoryId/skill/:skillId')
   .put(editSkill)
   .delete(deleteSkill);
-
+ 
 // Update skill achievement/percentage
 router.route('/:categoryId/skill/:skillId/achievement')
   .patch(updateSkillAchievement);
