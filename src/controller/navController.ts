@@ -160,13 +160,20 @@ export const reorderAdminNav = async (req: Request, res: Response): Promise<void
 // USER / DISPLAY NAVIGATION FUNCTIONS
 // ==========================================
 
-export const getUserNav = async (req: Request, res: Response): Promise<void> => {
+export const getUserNav = async (_req: Request, res: Response): Promise<void> => {
   try {
     const config = await getOrCreateNavConfig();
     
-    if (req.query.visible === 'true') {
+    if (_req.query.visible === 'true') {
       const visibleItems = config.userNav ? config.userNav.filter((item: IUserNav) => item.isVisible) : [];
       res.status(200).json({ success: true, data: visibleItems });
+      return;
+    }
+
+    // Filter for page routes if requested
+    if (_req.query.pages === 'true') {
+      const pageItems = config.userNav ? config.userNav.filter((item: IUserNav) => item.isPage === true) : [];
+      res.status(200).json({ success: true, data: pageItems });
       return;
     }
 
@@ -178,7 +185,7 @@ export const getUserNav = async (req: Request, res: Response): Promise<void> => 
 
 export const createUserNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id, label, iconName, isVisible } = req.body;
+    const { id, label, iconName, isVisible, route, isPage } = req.body;
     const config = await getOrCreateNavConfig();
 
     if (!id) {
@@ -194,7 +201,14 @@ export const createUserNavItem = async (req: Request, res: Response): Promise<vo
     }
 
     if (!config.userNav) config.userNav = [];
-    config.userNav.push({ id: cleanId, label, iconName, isVisible });
+    config.userNav.push({ 
+      id: cleanId, 
+      label, 
+      iconName, 
+      isVisible: isVisible !== undefined ? isVisible : true,
+      route: route || undefined,
+      isPage: isPage !== undefined ? isPage : false
+    });
     
     config.markModified('userNav');
     await config.save();
@@ -207,7 +221,7 @@ export const createUserNavItem = async (req: Request, res: Response): Promise<vo
 export const editUserNavItem = async (req: Request, res: Response): Promise<void> => {
   try {
     const targetId = req.params.targetId ? String(req.params.targetId).toLowerCase().trim() : '';
-    const { id, label, iconName, isVisible } = req.body;
+    const { id, label, iconName, isVisible, route, isPage } = req.body;
     const config = await getOrCreateNavConfig();
 
     if (!targetId) {
@@ -246,6 +260,8 @@ export const editUserNavItem = async (req: Request, res: Response): Promise<void
     if (label !== undefined) targetItem.label = label;
     if (iconName !== undefined) targetItem.iconName = iconName;
     if (isVisible !== undefined) targetItem.isVisible = isVisible;
+    if (route !== undefined) targetItem.route = route;
+    if (isPage !== undefined) targetItem.isPage = isPage;
 
     config.markModified('userNav');
     await config.save();
@@ -302,6 +318,243 @@ export const reorderUserNav = async (req: Request, res: Response): Promise<void>
     await config.save();
 
     res.status(200).json({ success: true, data: config.userNav });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
+// NEW: PAGE NAVIGATION FUNCTIONS
+// ==========================================
+
+export const getPageNavItems = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const config = await getOrCreateNavConfig();
+    const pageItems = config.userNav ? config.userNav.filter((item: IUserNav) => item.isPage === true && item.isVisible === true) : [];
+    res.status(200).json({ success: true, data: pageItems });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getPageNavItemByRoute = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const route = req.params.route ? String(req.params.route).trim() : '';
+    const config = await getOrCreateNavConfig();
+
+    if (!route) {
+      res.status(400).json({ success: false, error: 'Route parameter is required.' });
+      return;
+    }
+
+    const pageItem = config.userNav.find((item: IUserNav) => 
+      item.route === route && item.isPage === true
+    );
+
+    if (!pageItem) {
+      res.status(404).json({ success: false, error: 'Page navigation item not found.' });
+      return;
+    }
+
+    res.status(200).json({ success: true, data: pageItem });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const createPageNavItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, label, iconName, isVisible, route } = req.body;
+    const config = await getOrCreateNavConfig();
+
+    if (!id || !route) {
+      res.status(400).json({ success: false, error: 'ID and route fields are required.' });
+      return;
+    }
+
+    const cleanId = String(id).toLowerCase().trim();
+    const cleanRoute = String(route).trim().toLowerCase();
+
+    // Check for duplicate ID
+    if (config.userNav && config.userNav.some((item: IUserNav) => item.id === cleanId)) {
+      res.status(400).json({ success: false, error: 'A user nav item with this ID already exists.' });
+      return;
+    }
+
+    // Check for duplicate route
+    if (config.userNav && config.userNav.some((item: IUserNav) => item.route === cleanRoute)) {
+      res.status(400).json({ success: false, error: 'A page with this route already exists.' });
+      return;
+    }
+
+    if (!config.userNav) config.userNav = [];
+    config.userNav.push({ 
+      id: cleanId, 
+      label, 
+      iconName, 
+      isVisible: isVisible !== undefined ? isVisible : true,
+      route: cleanRoute,
+      isPage: true
+    });
+    
+    config.markModified('userNav');
+    await config.save();
+    res.status(201).json({ success: true, data: config.userNav });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const editPageNavItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const targetId = req.params.targetId ? String(req.params.targetId).toLowerCase().trim() : '';
+    const { id, label, iconName, isVisible, route } = req.body;
+    const config = await getOrCreateNavConfig();
+
+    if (!targetId) {
+      res.status(400).json({ success: false, error: 'Target ID param is missing.' });
+      return;
+    }
+
+    if (!config.userNav) {
+      res.status(404).json({ success: false, error: 'User navigation stack not allocated.' });
+      return;
+    }
+
+    const itemIndex = config.userNav.findIndex((item: IUserNav) => item.id === targetId && item.isPage === true);
+    if (itemIndex === -1) {
+      res.status(404).json({ success: false, error: 'Page nav item not found.' });
+      return;
+    }
+
+    const targetItem = config.userNav[itemIndex];
+    if (!targetItem) {
+      res.status(404).json({ success: false, error: 'Target item reference lost.' });
+      return;
+    }
+
+    if (id) {
+      const cleanNewId = String(id).toLowerCase().trim();
+      if (cleanNewId !== targetId) {
+        if (config.userNav.some((item: IUserNav) => item.id === cleanNewId)) {
+          res.status(400).json({ success: false, error: 'The new ID is already taken by another item.' });
+          return;
+        }
+        targetItem.id = cleanNewId;
+      }
+    }
+
+    if (route) {
+      const cleanRoute = String(route).trim().toLowerCase();
+      if (cleanRoute !== targetItem.route) {
+        if (config.userNav.some((item: IUserNav) => item.route === cleanRoute)) {
+          res.status(400).json({ success: false, error: 'This route is already taken by another page.' });
+          return;
+        }
+        targetItem.route = cleanRoute;
+      }
+    }
+
+    if (label !== undefined) targetItem.label = label;
+    if (iconName !== undefined) targetItem.iconName = iconName;
+    if (isVisible !== undefined) targetItem.isVisible = isVisible;
+
+    config.markModified('userNav');
+    await config.save();
+    res.status(200).json({ success: true, data: targetItem });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const deletePageNavItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id ? String(req.params.id).toLowerCase().trim() : '';
+    const config = await getOrCreateNavConfig();
+
+    if (!id) {
+      res.status(400).json({ success: false, error: 'ID param is missing.' });
+      return;
+    }
+
+    if (!config.userNav) {
+      res.status(404).json({ success: false, error: 'User navigation matrix missing.' });
+      return;
+    }
+
+    const initialLength = config.userNav.length;
+    config.userNav = config.userNav.filter((item: IUserNav) => !(item.id === id && item.isPage === true));
+
+    if (config.userNav.length === initialLength) {
+      res.status(404).json({ success: false, error: 'Page nav item not found to delete.' });
+      return;
+    }
+
+    config.markModified('userNav');
+    await config.save();
+    res.status(200).json({ success: true, message: 'Page nav item deleted successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getPageNavChildren = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parentId = req.params.parentId ? String(req.params.parentId).toLowerCase().trim() : '';
+    const config = await getOrCreateNavConfig();
+
+    if (!parentId) {
+      res.status(400).json({ success: false, error: 'Parent ID parameter is required.' });
+      return;
+    }
+
+    const parentItem = config.userNav.find((item: IUserNav) => item.id === parentId && item.isPage === true);
+    
+    if (!parentItem) {
+      res.status(404).json({ success: false, error: 'Page navigation item not found.' });
+      return;
+    }
+
+    const children = parentItem.children || [];
+    res.status(200).json({ success: true, data: children });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ==========================================
+// COMPOSITE NAVIGATION FUNCTIONS
+// ==========================================
+
+export const getFullNavigation = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const config = await getOrCreateNavConfig();
+    
+    // Get all navigation items with their hierarchy
+    const fullNav = {
+      adminNav: config.adminNav || [],
+      userNav: config.userNav || [],
+      pageNav: config.userNav ? config.userNav.filter((item: IUserNav) => item.isPage === true) : []
+    };
+    
+    res.status(200).json({ success: true, data: fullNav });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getNavigationStructure = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const config = await getOrCreateNavConfig();
+    
+    // Build a structured navigation tree
+    const navStructure = {
+      admin: config.adminNav || [],
+      user: config.userNav || [],
+      pages: config.userNav ? config.userNav.filter((item: IUserNav) => item.isPage === true) : []
+    };
+    
+    res.status(200).json({ success: true, data: navStructure });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }

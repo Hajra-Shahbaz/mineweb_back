@@ -9,7 +9,15 @@ import {
   createUserNavItem,
   editUserNavItem,
   deleteUserNavItem,
-  reorderUserNav
+  reorderUserNav,
+  getPageNavItems,
+  getPageNavItemByRoute,
+  createPageNavItem,
+  editPageNavItem,
+  deletePageNavItem,
+  getPageNavChildren,
+  getFullNavigation,
+  getNavigationStructure
 } from '../controller/navController';
 
 const router = Router();
@@ -31,5 +39,21 @@ router.post('/user', createUserNavItem);          // POST /api/nav/user
 router.put('/user/:targetId', editUserNavItem);   // PUT /api/nav/user/:targetId
 router.delete('/user/:id', deleteUserNavItem);     // DELETE /api/nav/user/:id
 router.patch('/user/reorder', reorderUserNav);     // PATCH /api/nav/user/reorder
+
+// ==========================================
+// PAGE NAVIGATION ROUTING
+// ==========================================
+router.get('/pages', getPageNavItems);           // GET /api/nav/pages
+router.get('/pages/route/:route', getPageNavItemByRoute); // GET /api/nav/pages/route/:route
+router.post('/pages', createPageNavItem);         // POST /api/nav/pages
+router.put('/pages/:targetId', editPageNavItem);   // PUT /api/nav/pages/:targetId
+router.delete('/pages/:id', deletePageNavItem);     // DELETE /api/nav/pages/:id
+router.get('/pages/:parentId/children', getPageNavChildren); // GET /api/nav/pages/:parentId/children
+
+// ==========================================
+// COMPOSITE NAVIGATION ROUTING
+// ==========================================
+router.get('/full', getFullNavigation);          // GET /api/nav/full
+router.get('/structure', getNavigationStructure); // GET /api/nav/structure
 
 export default router;

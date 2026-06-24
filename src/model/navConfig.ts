@@ -1,22 +1,23 @@
 import { Schema, model, Document } from 'mongoose';
 
-// Structure for Admin-specific Navigation nodes
+// Interfaces remain the same
 export interface IAdminNav {
-  id: string;        // Routing lookup target (e.g., 'messages')
-  label: string;     // Text rendering string (e.g., 'Inbox Management')
-  iconName: string;  // Lucide React icon token label string
-  isWorking: boolean; // Custom operational flag for development tracking
+  id: string;
+  label: string;
+  iconName: string;
+  isWorking: boolean;
 }
 
-// Structure for User/Display-specific Navigation nodes
 export interface IUserNav {
-  id: string;        // Routing lookup target (e.g., 'education')
-  label: string;     // Text rendering string (e.g., 'Education')
-  iconName: string;  // Lucide React icon token label string
-  isVisible: boolean; // Visibility toggle master switch rule
+  id: string;
+  label: string;
+  iconName: string;
+  isVisible: boolean;
+  children?: IUserNav[];
+  route?: string; // Added route property
+  isPage?: boolean; // Added to identify if this is a page route
 }
 
-// Complete Master Layout Document Interface
 export interface INavConfig extends Document {
   adminNav: IAdminNav[];
   userNav: IUserNav[];
@@ -24,27 +25,34 @@ export interface INavConfig extends Document {
   updatedAt: string;
 }
 
-// Sub-schema definitions for structured verification validation
 const AdminNavSchema = new Schema<IAdminNav>({
   id: { type: String, required: true, lowercase: true, trim: true },
   label: { type: String, required: true, trim: true },
   iconName: { type: String, required: true, default: 'LayoutDashboard' },
   isWorking: { type: Boolean, default: true }
-}, { _id: false }); // Prevents mongoose from generating nested sub-document ObjectIds
+}, { _id: false });
 
 const UserNavSchema = new Schema<IUserNav>({
   id: { type: String, required: true, lowercase: true, trim: true },
   label: { type: String, required: true, trim: true },
   iconName: { type: String, required: true, default: 'LayoutDashboard' },
-  isVisible: { type: Boolean, default: true }
+  isVisible: { type: Boolean, default: true },
+  route: { type: String, trim: true }, // Added route field
+  isPage: { type: Boolean, default: false } // Added isPage field
 }, { _id: false });
 
-// Core Model configuration layout mapping
+// Crucial: Add the children field recursively to the schema definition
+UserNavSchema.add({
+  children: [UserNavSchema]
+});
+
+// Core Model configuration
 const NavConfigSchema = new Schema<INavConfig>({
-  adminNav: { type: [AdminNavSchema], default: [] },
-  userNav: { type: [UserNavSchema], default: [] }
+  // Use array notation directly, NOT { type: [...] }
+  adminNav: [AdminNavSchema],
+  userNav: [UserNavSchema]
 }, { 
-  timestamps: true // Tracks global updates to configuration sequences
+  timestamps: true 
 });
 
 export const NavConfig = model<INavConfig>('NavConfig', NavConfigSchema);
