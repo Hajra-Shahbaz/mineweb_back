@@ -29,14 +29,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or Postman requests)
+    console.log("Incoming Request Origin:", origin); // <-- ADD THIS LINE
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.error("CORS BLOCKED ORIGIN:", origin); // <-- ADD THIS LINE
       callback(new Error('Blocked by Security Policy: CORS origin not allowed.'));
     }
+  
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
