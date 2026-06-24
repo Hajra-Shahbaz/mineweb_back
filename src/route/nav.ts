@@ -18,7 +18,7 @@ import {
   getPageNavChildren,
   getFullNavigation,
   getNavigationStructure
-} from '../controller/navController';
+} from '../controller/navController.ts';
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import type { IAdminNav, IUserNav } from '../model/navConfig';
-import { NavConfig } from '../model/navConfig';
+import type { IAdminNav, IUserNav } from '../model/navConfig.ts';
+import { NavConfig } from '../model/navConfig.ts';
 
 // Helper function to get or initialize the single master navigation document
 const getOrCreateNavConfig = async () => {
