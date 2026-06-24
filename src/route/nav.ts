@@ -56,4 +56,4 @@ router.get('/pages/:parentId/children', getPageNavChildren); // GET /api/nav/pag
 router.get('/full', getFullNavigation);          // GET /api/nav/full
 router.get('/structure', getNavigationStructure); // GET /api/nav/structure
 
-export default router;
+export default router; 
