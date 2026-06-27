@@ -113,7 +113,7 @@ export const addSkillToCategory = async (req: Request, res: Response): Promise<v
           } 
         } 
       },
-      { new: true }
+     { returnDocument: 'after' }
     );
     
     res.status(201).json(updatedCategory);
@@ -260,7 +260,7 @@ export const editCategory = async (req: Request, res: Response): Promise<void> =
     const updated = await SkillModel.findByIdAndUpdate(
       id,
       updateQuery,
-      { new: true }
+{ returnDocument: 'after' }
     );
     
     console.log('✅ Category updated successfully:', {
@@ -487,7 +487,7 @@ export const editSkill = async (req: Request, res: Response): Promise<void> => {
     const updated = await SkillModel.findOneAndUpdate(
       { _id: categoryId, "skills._id": skillId },
       { $set: updateObj },
-      { new: true }
+   { returnDocument: 'after' }
     );
     
     if (!updated) {
@@ -536,7 +536,7 @@ export const deleteSkill = async (req: Request, res: Response): Promise<void> =>
     const updated = await SkillModel.findByIdAndUpdate(
       categoryId,
       { $pull: { skills: { _id: skillId } } },
-      { new: true }
+   { returnDocument: 'after' }
     );
 
     // Decrement order of skills that were after the deleted skill
@@ -601,7 +601,7 @@ export const reorderSkillsInCategory = async (req: Request, res: Response): Prom
     const updatedCategory = await SkillModel.findByIdAndUpdate(
       categoryId,
       { $set: { skills: newSkillsArray } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updatedCategory) {
@@ -656,7 +656,7 @@ export const updateSkillAchievement = async (req: Request, res: Response): Promi
     const updated = await SkillModel.findOneAndUpdate(
       { _id: categoryId, "skills._id": skillId },
       { $set: updateObj },
-      { new: true }
+    { returnDocument: 'after' }
     );
 
     if (!updated) {
