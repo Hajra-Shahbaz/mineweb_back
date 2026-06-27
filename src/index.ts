@@ -12,6 +12,7 @@ import socialRouter from './route/social.ts';
 import educationRouter from './route/education.ts';
 import navRouter from './route/nav.ts'; // <--- 2. Import the nav route
 import taskRoutes from './route/list.ts';
+import newletterRouter from './route/newlwtter.ts'; // <--- 3. Import the newsletter route
 // ... existing configurations
 
 import cors from 'cors';
@@ -62,6 +63,8 @@ app.use('/api/social', socialRouter);
 app.use('/api/education', educationRouter);
 app.use('/api/nav', navRouter);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/newsletter', newletterRouter); // <--- 4. Register the newsletter route
+
 
 app.get('/', (_req, res) => {
   res.send('Portfolio API is running smoothly!'); 
