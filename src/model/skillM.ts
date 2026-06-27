@@ -4,21 +4,21 @@ import { Schema, model, Document } from 'mongoose';
 export interface ISkill {
   skill: string;
   order: number;
-  isAchieved?: boolean;   // Optional field to indicate if the skill is achieved or not
-  percentage?: number;    // Optional field to indicate the percentage of achievement
-  _id?: any;              // Include _id for skills
+  isAchieved?: boolean;
+  percentage?: number;
+  _id?: any;
 }
 
 // Interface for the Skill document
 export interface ISkillCategory extends Document {
   category: string;
   skills: ISkill[];
-  image1?: string;        // URL or file path for primary image
-  image2?: string;        // URL or file path for secondary/hover image
-  order: number;          // Sequence for drag-and-drop of the whole category
+  image1?: string;
+  image2?: string;
+  order: number;
 }
 
-// Schema for individual skill items (as a sub-document)
+// Schema for individual skill items (sub-document)
 const SkillItemSchema = new Schema<ISkill>({
   skill: { 
     type: String, 
@@ -47,7 +47,7 @@ const SkillCategorySchema = new Schema<ISkillCategory>({
     type: String, 
     required: true, 
     trim: true,
-    unique: true  // Add unique constraint
+    unique: true // This automatically creates the required index
   },
   image1: { 
     type: String, 
@@ -66,8 +66,7 @@ const SkillCategorySchema = new Schema<ISkillCategory>({
   timestamps: true 
 });
 
-// Add indexes for better performance
+// Add index only for the order field (category is already indexed by unique: true)
 SkillCategorySchema.index({ order: 1 });
-SkillCategorySchema.index({ category: 1 });
 
 export const SkillModel = model<ISkillCategory>('Skill', SkillCategorySchema);
