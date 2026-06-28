@@ -5,4 +5,4 @@ const router = Router();
 router.post('/subscribe', subscribe);
 router.get('/all', getAllSubscribers);
 
-export default router;
+export default router; 
