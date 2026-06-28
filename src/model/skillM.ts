@@ -47,7 +47,7 @@ const SkillCategorySchema = new Schema<ISkillCategory>({
     type: String, 
     required: true, 
     trim: true,
-    unique: true // This automatically creates the required index
+    unique: true // Automatically creates a unique index on category
   },
   image1: { 
     type: String, 
@@ -60,13 +60,11 @@ const SkillCategorySchema = new Schema<ISkillCategory>({
   skills: [SkillItemSchema],
   order: { 
     type: Number, 
-    default: 0 
+    default: 0,
+    index: true // Defines the index here to avoid separate duplicate calls
   }
 }, { 
   timestamps: true 
 });
-
-// Add index only for the order field (category is already indexed by unique: true)
-SkillCategorySchema.index({ order: 1 });
 
 export const SkillModel = model<ISkillCategory>('Skill', SkillCategorySchema);
